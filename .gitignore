@@ -1,0 +1,46 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+*.nupkg
+*.snupkg
+
+# Visual Studio / Rider / VS Code
+.vs/
+*.user
+*.suo
+*.userprefs
+.idea/
+.vscode/*
+!.vscode/mcp.json
+
+# C++ / MFC (samples/WinMcp.MfcTestApp)
+x64/
+x86/
+Win32/
+ARM64/
+Debug/
+Release/
+*.aps
+*.ipch
+*.pdb
+*.ilk
+*.obj
+*.tlog
+*.VC.db
+*.VC.opendb
+
+# Test results / coverage
+TestResults/
+*.trx
+coverage*.xml
+*.coverage
+
+# WinMCP runtime output
+audit/
+*.log
+
+# OS
+Thumbs.db
+Desktop.ini

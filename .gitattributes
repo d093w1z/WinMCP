@@ -1,0 +1,20 @@
+* text=auto
+
+*.cs      text diff=csharp
+*.csproj  text
+*.slnx    text
+*.props   text
+*.md      text
+*.json    text
+*.manifest text
+
+# Visual Studio C++ files expect CRLF
+*.sln     text eol=crlf
+*.vcxproj text eol=crlf
+# .rc files are often UTF-16; never convert them
+*.rc      -text
+*.h       text
+*.cpp     text
+
+*.png     binary
+*.ico     binary
