@@ -2,7 +2,7 @@
   "mcpServers": {
     "winmcp": {
       "type": "stdio",
-      "command": "artifacts/mcp/WinMcp.Server.exe",
+      "command": "artifacts/winmcp/WinMcp.Server.exe",
       "args": ["--mode", "observe", "--allow", "WinMcp.TestApp"]
     }
   }

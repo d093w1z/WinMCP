@@ -13,7 +13,8 @@ Status: **Draft for review** · Date: 2026-09-30 · Scope: planning only, no imp
 | 2026-09-30 | Non-allowlisted windows are **excluded entirely** from all tool output (only `excluded_count` returned) | Titles/contents of unrelated apps may be sensitive or irrelevant. Revisit an opt-in listing mode later. |
 | 2026-09-30 | `resource.h` symbol mapping **moved from M11 into MVP (M5)** | Cheap to implement, pure Core logic, high value for developers debugging their own Win32/MFC apps. |
 | 2026-09-30 | Handles of non-allowlisted windows return **`WINDOW_NOT_FOUND`**, identical to nonexistent handles (not `TARGET_NOT_ALLOWED`) | Follows from the exclusion decision: a distinct error would confirm the window exists. `TARGET_NOT_ALLOWED` is kept for control actions whose target stops being allowlisted mid-session. |
-| 2026-09-30 | Claude Code runs a **published copy** (`artifacts/mcp/`) via `.mcp.json`, not `bin/` | A running client locks `bin/` and breaks every build and test run (hit during M3). Refresh with `dotnet publish src\WinMcp.Server -c Release -o artifacts\mcp`. |
+| 2026-09-30 | Claude Code runs a **published copy** via `.mcp.json`, not `bin/` | A running client locks `bin/` and breaks every build and test run (hit during M3). |
+| 2026-09-30 | Publishing uses **timestamped build folders + an `artifacts\winmcp` junction** (`scripts\publish-mcp.ps1`) | A running client also locked the single published folder, blocking updates. Windows refuses to overwrite or rename in-use files/folders, but re-pointing a junction is always allowed; running servers keep their build, unused builds are pruned. Verified by publishing while a server ran from the previous build. |
 
 ---
 

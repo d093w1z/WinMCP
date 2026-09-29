@@ -37,21 +37,23 @@ WinMcp.Server [--mode observe|control] [--allow <process-name-or-exe-path>]... [
 
 ### Claude Code
 
-This repo's [`.mcp.json`](.mcp.json) registers a published copy in observe mode with only the TestApp allowlisted. It runs from `artifacts/mcp/` rather than `bin/`, so a running client never locks the files that builds and tests overwrite:
+This repo's [`.mcp.json`](.mcp.json) registers a published copy in observe mode with only the TestApp allowlisted. Publish (and re-publish after changes) with:
 
 ```powershell
-dotnet publish src\WinMcp.Server -c Release -o artifacts\mcp   # refresh; reconnect the server in your client afterwards
+.\scripts\publish-mcp.ps1   # then reconnect the server in your client (/mcp in Claude Code)
 ```
+
+The script is safe while a client is running the previous build: each publish goes to a new folder under `artifacts\winmcp-builds\`, and the `artifacts\winmcp` junction that `.mcp.json` uses is switched to it. Running servers keep their folder; unused old builds are cleaned up.
 
 Then start Claude Code in the repo root and approve the `winmcp` server when prompted. Or register it yourself:
 
 ```powershell
-claude mcp add winmcp -- "<repo>\artifacts\mcp\WinMcp.Server.exe" --allow WinMcp.TestApp
+claude mcp add winmcp -- "<repo>\artifacts\winmcp\WinMcp.Server.exe" --allow WinMcp.TestApp
 ```
 
 Then launch `samples\WinMcp.TestApp` and ask, for example: *"Find the WinMCP test application, describe its controls, and tell me the current status."*
 
-After pulling new changes, close sessions that use `winmcp`, re-run the publish command, and reconnect (`/mcp` in Claude Code). A running client keeps the old server process, and Windows won't let the publish overwrite files it has open.
+A running client keeps its server process (and build) until you reconnect; there's no need to stop it before publishing.
 
 ## Layout
 
