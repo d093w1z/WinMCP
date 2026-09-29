@@ -57,6 +57,27 @@ public sealed partial class HungTargetTests : IClassFixture<TestAppSession>, IDi
     }
 
     [Fact]
+    public async Task Screenshot_of_a_hung_window_is_refused_quickly()
+    {
+        var token = TestContext.Current.CancellationToken;
+        var hwnd = _app.WindowHandle.ToString();
+        var screenshots = new WinMcp.Core.Capture.ScreenshotService(_services.Windows, _services.Tree, new PrintWindowCapture());
+
+        Assert.True(PostMessage(_app.Find("freezeButton").Properties.NativeWindowHandle.Value, BmClick, 0, 0));
+        var frozenAt = Stopwatch.StartNew();
+        await Task.Delay(300, token);
+
+        var ex = await Assert.ThrowsAsync<WinMcpException>(() =>
+            screenshots.CaptureAsync(hwnd, null, new WinMcp.Core.Automation.ElementLocator(), 0, 1280, token));
+        Assert.Equal(WinMcpErrorCode.TargetNotResponding, ex.Error.Code);
+        Assert.True(frozenAt.Elapsed < TimeSpan.FromSeconds(7), $"took {frozenAt.Elapsed.TotalSeconds:F1} s");
+
+        TestAppSession.WaitUntil(
+            () => frozenAt.Elapsed > TimeSpan.FromSeconds(8.5) && _services.Windows.Inspect(hwnd).Responding,
+            "the freeze is over", TimeSpan.FromSeconds(15));
+    }
+
+    [Fact]
     public async Task Invoking_a_button_whose_handler_blocks_reports_success_with_a_warning()
     {
         var token = TestContext.Current.CancellationToken;

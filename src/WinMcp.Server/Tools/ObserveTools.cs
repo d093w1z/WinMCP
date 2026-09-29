@@ -3,13 +3,14 @@ using System.Text.Json;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using WinMcp.Core.Automation;
+using WinMcp.Core.Capture;
 using WinMcp.Core.Desktop;
 
 namespace WinMcp.Server.Tools;
 
 /// <summary>Read-only tools, registered in every mode.</summary>
 [McpServerToolType]
-public sealed class ObserveTools(WindowQuery windows, UiTreeService tree)
+public sealed class ObserveTools(WindowQuery windows, UiTreeService tree, ScreenshotService screenshots)
 {
     [McpServerTool(Name = "list_windows", Title = "List windows", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true)]
     [Description(
@@ -84,6 +85,33 @@ public sealed class ObserveTools(WindowQuery windows, UiTreeService tree)
         [Description("resource.h name of a Win32/MFC control, e.g. 'IDC_EDIT_NAME' (requires --symbols).")] string? control_symbol = null,
         CancellationToken cancellationToken = default) =>
         tree.InspectAsync(hwnd, element, new ElementLocator(automation_id, name, null, control_type, null, control_symbol), cancellationToken);
+
+    [McpServerTool(Name = "capture_screenshot", Title = "Capture screenshot", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false)]
+    [Description(
+        "PNG image of a window, or of one element (by ref or criteria) with optional padding. "
+        + "Use it to check visual layout or content the UI tree doesn't expose (e.g. custom-drawn areas); prefer get_ui_tree for reading text and state. "
+        + "Rendered by the window itself, so covered windows still capture correctly and other applications never appear. "
+        + "Returns the image plus JSON metadata (source bounds in screen pixels, scale, DPI).")]
+    public async Task<CallToolResult> CaptureScreenshot(
+        [Description("Window handle from list_windows. Alone, captures the whole window.")] string? hwnd = null,
+        [Description("Ref of an element to capture instead of the whole window.")] string? element = null,
+        [Description("Exact AutomationId of the element to capture (with hwnd).")] string? automation_id = null,
+        [Description("Exact element name (with hwnd).")] string? name = null,
+        [Description("UI Automation control type (with hwnd).")] string? control_type = null,
+        [Description("Extra pixels around an element (0–200). Default 0.")] int padding = 0,
+        [Description("Longest image edge in pixels; larger captures are scaled down (64–4096). Default 1280.")] int max_edge = ScreenshotService.DefaultMaxEdge,
+        CancellationToken cancellationToken = default)
+    {
+        var shot = await screenshots.CaptureAsync(hwnd, element, new ElementLocator(automation_id, name, null, control_type), padding, max_edge, cancellationToken);
+        return new CallToolResult
+        {
+            Content =
+            [
+                ImageContentBlock.FromBytes(shot.Png, "image/png"),
+                new TextContentBlock { Text = JsonSerializer.Serialize(shot.Info, WinMcpJson.Options) },
+            ],
+        };
+    }
 
     [McpServerTool(Name = "wait_for", Title = "Wait for", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true)]
     [Description(

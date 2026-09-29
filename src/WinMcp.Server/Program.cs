@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using WinMcp.Core.Automation;
+using WinMcp.Core.Capture;
 using WinMcp.Core.Desktop;
 using WinMcp.Core.Policy;
 using WinMcp.Server;
@@ -37,6 +38,7 @@ builder.Services.AddSingleton<IDesktop, Win32Desktop>();
 // 3 s per UIA call against a hung target (M0: default timeouts block for the whole hang); 10 s for a whole tool call.
 builder.Services.AddSingleton(_ => new AutomationDispatcher(uiaTimeout: TimeSpan.FromSeconds(3), hardTimeout: TimeSpan.FromSeconds(10)));
 builder.Services.AddSingleton<IUiAutomation, UiaAutomation>();
+builder.Services.AddSingleton<IScreenCapture, PrintWindowCapture>();
 builder.Services.AddWinMcpServer(options).WithStdioServerTransport();
 
 await builder.Build().RunAsync();

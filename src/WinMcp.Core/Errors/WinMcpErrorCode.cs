@@ -22,6 +22,7 @@ public enum WinMcpErrorCode
     AccessDeniedElevated,
     TargetNotResponding,
     WindowMinimized,
+    ElementOffscreen,
     WindowClosed,
     FocusFailed,
     Timeout,
@@ -50,6 +51,7 @@ public static class WinMcpErrorCodeExtensions
         WinMcpErrorCode.AccessDeniedElevated or
         WinMcpErrorCode.TargetNotResponding or
         WinMcpErrorCode.WindowMinimized or
+        WinMcpErrorCode.ElementOffscreen or
         WinMcpErrorCode.WindowClosed or
         WinMcpErrorCode.FocusFailed or
         WinMcpErrorCode.Timeout => ErrorCategory.Environment,

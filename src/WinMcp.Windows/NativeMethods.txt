@@ -35,6 +35,9 @@ BM_CLICK
 PostMessage
 GetParent
 
+// Capture
+PrintWindow
+
 // Process information
 OpenProcess
 QueryFullProcessImageName

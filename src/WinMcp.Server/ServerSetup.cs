@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ModelContextProtocol.Protocol;
 using WinMcp.Core.Audit;
 using WinMcp.Core.Automation;
+using WinMcp.Core.Capture;
 using WinMcp.Core.Desktop;
 using WinMcp.Core.Policy;
 using WinMcp.Core.Symbols;
@@ -25,6 +26,7 @@ public static class ServerSetup
         services.AddSingleton<ElementRegistry>();
         services.AddSingleton<SymbolProvider>();
         services.AddSingleton<InteractionService>();
+        services.AddSingleton<ScreenshotService>();
         services.AddSingleton<IAuditLog>(_ => new JsonlAuditLog(options.AuditDirectory));
         services.AddSingleton<UiTreeService>();
 

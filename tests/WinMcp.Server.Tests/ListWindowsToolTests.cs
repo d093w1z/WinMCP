@@ -16,12 +16,13 @@ public sealed class ListWindowsToolTests
 
         var tools = await server.Client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.Equal(["find_elements", "get_ui_tree", "inspect_element", "inspect_window", "list_windows", "wait_for"], tools.Select(t => t.Name).Order());
+        Assert.Equal(["capture_screenshot", "find_elements", "get_ui_tree", "inspect_element", "inspect_window", "list_windows", "wait_for"], tools.Select(t => t.Name).Order());
         Assert.All(tools, tool =>
         {
             Assert.True(tool.ProtocolTool.Annotations?.ReadOnlyHint);
             Assert.False(tool.ProtocolTool.Annotations?.DestructiveHint);
-            Assert.NotNull(tool.ProtocolTool.OutputSchema);
+            if (tool.Name != "capture_screenshot") // returns an image, not structured content
+                Assert.NotNull(tool.ProtocolTool.OutputSchema);
         });
     }
 

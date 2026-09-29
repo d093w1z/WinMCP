@@ -3,7 +3,7 @@
     "winmcp": {
       "type": "stdio",
       "command": "artifacts/winmcp/WinMcp.Server.exe",
-      "args": ["--mode", "observe", "--allow", "WinMcp.TestApp"]
+      "args": ["--mode", "control", "--allow", "WinMcp.TestApp"]
     }
   }
 }

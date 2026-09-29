@@ -24,6 +24,9 @@ internal sealed class InProcessServer : IAsyncDisposable
 
     public McpClient Client { get; }
 
+    /// <summary>This server's screen capture fake; <see cref="FakeScreenCapture.Requests"/> shows what was captured.</summary>
+    public FakeScreenCapture Capture { get; private init; } = new();
+
     public static Task<InProcessServer> StartAsync(IDesktop desktop, params string[] args) =>
         StartAsync(desktop, new FakeUiAutomation(), args);
 
@@ -37,6 +40,8 @@ internal sealed class InProcessServer : IAsyncDisposable
         builder.Logging.ClearProviders();
         builder.Services.AddSingleton(desktop);
         builder.Services.AddSingleton(automation);
+        var capture = new FakeScreenCapture();
+        builder.Services.AddSingleton<WinMcp.Core.Capture.IScreenCapture>(capture);
         builder.Services
             .AddWinMcpServer(WinMcpOptions.Parse(args))
             .WithStreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream());
@@ -47,7 +52,7 @@ internal sealed class InProcessServer : IAsyncDisposable
         var client = await McpClient.CreateAsync(
             new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
             cancellationToken: cancellationToken);
-        return new InProcessServer(host, client);
+        return new InProcessServer(host, client) { Capture = capture };
     }
 
     public ValueTask<CallToolResult> CallAsync(string tool, Dictionary<string, object?>? arguments = null) =>

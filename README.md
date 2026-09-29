@@ -2,7 +2,7 @@
 
 An MCP server that gives AI agents semantic access to native Windows applications — HWND hierarchy, UI Automation tree and Win32 metadata — rather than screenshots and mouse coordinates.
 
-> **Status:** proof of concept, under active design. See [docs/design/mvp-plan.md](docs/design/mvp-plan.md). Tools so far — read-only: `list_windows`, `inspect_window`, `get_ui_tree`, `find_elements`, `inspect_element`, `wait_for`; with `--mode control` also: `invoke`, `set_value`, `select_option`, `set_toggle`.
+> **Status:** proof of concept, under active design. See [docs/design/mvp-plan.md](docs/design/mvp-plan.md). Tools so far — read-only: `list_windows`, `inspect_window`, `get_ui_tree`, `find_elements`, `inspect_element`, `wait_for`, `capture_screenshot`; with `--mode control` also: `invoke`, `set_value`, `select_option`, `set_toggle`.
 
 ## Requirements
 
