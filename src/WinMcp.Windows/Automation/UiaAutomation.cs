@@ -16,7 +16,6 @@ namespace WinMcp.Windows.Automation;
 public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomation
 {
     private const int UiaElementNotAvailable = unchecked((int)0x80040201);
-    private const int UiaTimeout = unchecked((int)0x80131505);
 
     public Task<RawElement> GetWindowTreeAsync(WindowHandle window, CancellationToken cancellationToken) =>
         dispatcher.RunAsync(automation => Translate(window, () => FetchTree(automation, window)), cancellationToken);
@@ -38,6 +37,16 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
                 ControlId: Win32Controls.ControlId(hwnd, (nint)element.Window.Value),
                 Options: options?.Options,
                 OptionCount: options?.Count);
+        }), cancellationToken);
+
+    public Task<ActionOutcome> PerformAsync(ElementKey element, ElementAction action, CancellationToken cancellationToken) =>
+        dispatcher.RunAsync(automation => Translate(element.Window, () =>
+        {
+            var live = FindLive(automation, element);
+            // Re-checked live: the element may have been disabled since the caller's check (M0: UIA acts on it anyway).
+            if (!live.Properties.IsEnabled.ValueOrDefault)
+                throw new WinMcpException(new WinMcpError(WinMcpErrorCode.ElementDisabled, "The element became disabled."));
+            return UiaActions.Perform(automation, live, action);
         }), cancellationToken);
 
     /// <summary>
@@ -167,7 +176,7 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
         {
             return work();
         }
-        catch (Exception ex) when (ex is TimeoutException || ex.HResult == UiaTimeout)
+        catch (Exception ex) when (UiaErrors.IsTimeout(ex))
         {
             throw new WinMcpException(new WinMcpError(
                 WinMcpErrorCode.TargetNotResponding,

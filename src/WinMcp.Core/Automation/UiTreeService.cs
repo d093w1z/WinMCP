@@ -128,9 +128,103 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
             SuggestLocator(scope, target, symbol.Symbol));
     }
 
+    /// <summary>The element an action targets, freshly fetched, with the window it belongs to.</summary>
+    public sealed record ResolvedElement(string Ref, ElementKey Key, RawElement Element, WindowInfo Window);
+
+    /// <summary>Resolves the target of an interaction tool with the same rules (and allowlist gate) as inspect_element.</summary>
+    public async Task<ResolvedElement> ResolveElementAsync(string? hwnd, string? element, ElementLocator locator, CancellationToken cancellationToken)
+    {
+        var (scope, target, reference) = await ResolveTargetAsync(hwnd, element, locator, cancellationToken);
+        return new ResolvedElement(reference, new ElementKey(scope.Handle, target.RuntimeId), target, scope.Window.Window);
+    }
+
+    public const int DefaultWaitTimeoutMs = 5000;
+    private const int MaxWaitTimeoutMs = 60_000;
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>
+    /// Polls until the condition holds or the timeout expires (TIMEOUT, retryable). Exists/Gone accept any number of
+    /// matches; the other conditions need exactly one element. Text is the element's value, or its name when it has
+    /// no value; password fields can't be waited on by text (that would let callers probe their content).
+    /// </summary>
+    public async Task<WaitResult> WaitAsync(
+        string? hwnd, string? element, ElementLocator locator, WaitCondition condition, string? text, int timeoutMs, CancellationToken cancellationToken)
+    {
+        RequireRange(timeoutMs, 0, MaxWaitTimeoutMs, "timeout_ms");
+        if (condition is WaitCondition.TextEquals or WaitCondition.TextContains && text is null)
+            throw Invalid($"Condition '{Wire(condition)}' needs 'text'.");
+        if (element is null && locator.IsEmpty)
+            throw Invalid("Give 'element' (a ref), or 'hwnd' with criteria such as automation_id.");
+        ValidateControlType(locator);
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        string? lastText = null;
+        var lastCount = 0;
+        while (true)
+        {
+            List<RawElement> matches;
+            Scope? scope = null;
+            try
+            {
+                scope = await ResolveScopeAsync(hwnd, element, cancellationToken);
+                matches = locator.IsEmpty ? [scope.Root] : Search(scope, scope.Root, locator);
+            }
+            catch (WinMcpException ex) when (ex.Error.Code == WinMcpErrorCode.ElementStale)
+            {
+                matches = []; // the ref'd element is gone
+            }
+
+            lastCount = matches.Count;
+            if (condition is not (WaitCondition.Exists or WaitCondition.Gone) && matches.Count > 1)
+                throw new WinMcpException(new WinMcpError(WinMcpErrorCode.AmbiguousMatch,
+                    $"{matches.Count} elements match; '{Wire(condition)}' needs exactly one.", Hint: "Add criteria or pass a ref as 'element'."));
+            if (matches is [{ IsPassword: true }] && condition is WaitCondition.TextEquals or WaitCondition.TextContains)
+                throw new WinMcpException(new WinMcpError(WinMcpErrorCode.PasswordField, "Password fields can't be waited on by text."));
+
+            var single = matches.Count == 1 ? matches[0] : null;
+            lastText = single is null ? null : single.Value ?? single.Name;
+            var satisfied = condition switch
+            {
+                WaitCondition.Exists => matches.Count > 0,
+                WaitCondition.Gone => matches.Count == 0,
+                WaitCondition.Enabled => single is { IsEnabled: true },
+                WaitCondition.TextEquals => lastText is not null && string.Equals(lastText, text, StringComparison.Ordinal),
+                WaitCondition.TextContains => lastText is not null && lastText.Contains(text!, StringComparison.Ordinal),
+                _ => false,
+            };
+            if (satisfied)
+            {
+                ElementMatch? match = null;
+                if (scope is not null && matches.Count > 0)
+                {
+                    var (value, states) = Describe(matches[0]);
+                    match = new ElementMatch(Ref(scope, matches[0]), matches[0].ControlType, matches[0].Name, NullIfEmpty(matches[0].AutomationId), value, states);
+                }
+                return new WaitResult(true, Wire(condition), stopwatch.ElapsedMilliseconds, match);
+            }
+
+            if (stopwatch.ElapsedMilliseconds >= timeoutMs)
+                throw new WinMcpException(new WinMcpError(
+                    WinMcpErrorCode.Timeout,
+                    $"Condition '{Wire(condition)}' not met within {timeoutMs} ms.",
+                    Hint: "The UI may still be working; retry with a longer timeout_ms, or check the criteria with get_ui_tree.",
+                    Details: new Dictionary<string, object?> { ["matches"] = lastCount, ["last_text"] = lastText }));
+            await Task.Delay(PollInterval, cancellationToken);
+        }
+    }
+
+    private static string Wire(WaitCondition condition) => condition switch
+    {
+        WaitCondition.Exists => "exists",
+        WaitCondition.Gone => "gone",
+        WaitCondition.Enabled => "enabled",
+        WaitCondition.TextEquals => "text_equals",
+        _ => "text_contains",
+    };
+
     /// <summary>
     /// The single element a request designates: a ref alone; or hwnd/ref scope plus a locator that must match
-    /// exactly one element. Shared with the interaction tools (M6).
+    /// exactly one element.
     /// </summary>
     private async Task<(Scope Scope, RawElement Target, string Ref)> ResolveTargetAsync(
         string? hwnd, string? element, ElementLocator locator, CancellationToken cancellationToken)

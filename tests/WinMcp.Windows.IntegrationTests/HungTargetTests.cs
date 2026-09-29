@@ -55,4 +55,28 @@ public sealed partial class HungTargetTests : IClassFixture<TestAppSession>, IDi
         var tree = await _services.Tree.GetTreeAsync(hwnd, null, 10, 300, token);
         Assert.Equal("Window", tree.Root.ControlType);
     }
+
+    [Fact]
+    public async Task Invoking_a_button_whose_handler_blocks_reports_success_with_a_warning()
+    {
+        var token = TestContext.Current.CancellationToken;
+        using var control = WinMcpServices.Control();
+        var hwnd = _app.WindowHandle.ToString(); // read before freezing: the harness reads it through UIA
+
+        var timing = Stopwatch.StartNew();
+        var result = await control.Interaction.PerformAsync(
+            hwnd, null, new WinMcp.Core.Automation.ElementLocator(AutomationId: "freezeButton"),
+            new WinMcp.Core.Automation.ElementAction.Invoke(), token);
+
+        // The click was delivered; reporting TARGET_NOT_RESPONDING would invite a second click.
+        Assert.True(result.Ok);
+        Assert.Equal("uia.InvokePattern", result.Method);
+        Assert.Contains("still busy", result.Warning);
+        Assert.True(timing.Elapsed < TimeSpan.FromSeconds(8), $"returned after {timing.Elapsed.TotalSeconds:F1} s");
+
+        // Windows only flags a hang after ~5 s, so "responding" alone would pass mid-freeze; wait out the 8 s freeze too.
+        TestAppSession.WaitUntil(
+            () => timing.Elapsed > TimeSpan.FromSeconds(8.5) && control.Windows.Inspect(hwnd).Responding,
+            "the freeze is over", TimeSpan.FromSeconds(15));
+    }
 }

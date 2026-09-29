@@ -21,6 +21,25 @@ internal sealed class FakeUiAutomation : IUiAutomation
     public Task<ElementExtras> GetElementExtrasAsync(ElementKey element, CancellationToken cancellationToken) =>
         Task.FromResult(Extras.TryGetValue(element.RuntimeId, out var extras) ? extras : DefaultExtras);
 
+    /// <summary>Every action that reached the "target", in order.</summary>
+    public List<(ElementKey Element, ElementAction Action)> Performed { get; } = [];
+
+    /// <summary>Simulates the action's effect (e.g. mutate <see cref="Trees"/>); default reports a generic success.</summary>
+    public Func<ElementKey, ElementAction, ActionOutcome>? OnPerform { get; set; }
+
+    public Task<ActionOutcome> PerformAsync(ElementKey element, ElementAction action, CancellationToken cancellationToken)
+    {
+        Performed.Add((element, action));
+        try
+        {
+            return Task.FromResult(OnPerform?.Invoke(element, action) ?? new ActionOutcome("fake.Action", true));
+        }
+        catch (Exception ex)
+        {
+            return Task.FromException<ActionOutcome>(ex);
+        }
+    }
+
     public Task<RawElement> GetWindowTreeAsync(WindowHandle window, CancellationToken cancellationToken)
     {
         FetchCount++;

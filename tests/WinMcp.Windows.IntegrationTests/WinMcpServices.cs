@@ -1,3 +1,4 @@
+using WinMcp.Core.Audit;
 using WinMcp.Core.Automation;
 using WinMcp.Core.Desktop;
 using WinMcp.Core.Policy;
@@ -16,7 +17,17 @@ internal sealed class WinMcpServices : IDisposable
         Automation = new UiaAutomation(Dispatcher);
         Windows = new WindowQuery(new Win32Desktop(), new TargetPolicy(options, Environment.ProcessId));
         Tree = new UiTreeService(Windows, Automation, new ElementRegistry(), new SymbolProvider(options));
+        Interaction = new InteractionService(Tree, Automation, options, new JsonlAuditLog(options.AuditDirectory));
+        AuditDirectory = options.AuditDirectory;
     }
+
+    /// <summary>Control-mode services allowlisting the TestApp, auditing to a fresh temp directory.</summary>
+    public static WinMcpServices Control() =>
+        new("--mode", "control", "--allow", "WinMcp.TestApp", "--audit-dir", Path.Combine(Path.GetTempPath(), $"winmcp-audit-{Guid.NewGuid():N}"));
+
+    public InteractionService Interaction { get; }
+
+    public string AuditDirectory { get; }
 
     public AutomationDispatcher Dispatcher { get; }
 
@@ -26,5 +37,10 @@ internal sealed class WinMcpServices : IDisposable
 
     public UiTreeService Tree { get; }
 
-    public void Dispose() => Dispatcher.Dispose();
+    public void Dispose()
+    {
+        Dispatcher.Dispose();
+        if (AuditDirectory.StartsWith(Path.GetTempPath(), StringComparison.OrdinalIgnoreCase) && Directory.Exists(AuditDirectory))
+            Directory.Delete(AuditDirectory, recursive: true);
+    }
 }

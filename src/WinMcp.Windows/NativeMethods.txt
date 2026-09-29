@@ -27,6 +27,13 @@ SendMessageTimeout
 CB_GETCOUNT
 CB_GETLBTEXT
 CB_GETLBTEXTLEN
+CB_SETCURSEL
+CBN_SELCHANGE
+WM_COMMAND
+WM_SETTEXT
+BM_CLICK
+PostMessage
+GetParent
 
 // Process information
 OpenProcess

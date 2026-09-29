@@ -52,6 +52,29 @@ internal static unsafe class Win32Controls
         return (options, (int)count);
     }
 
+    /// <summary>
+    /// Selects a combo item the way a user would be seen by the app: CB_SETCURSEL alone does <b>not</b> send
+    /// CBN_SELCHANGE, so the app's selection handler would never run. The notification is sent explicitly.
+    /// </summary>
+    public static bool SelectComboItem(nint hwnd, int index)
+    {
+        if (Send(hwnd, PInvoke.CB_SETCURSEL, (nuint)index, 0) is not { } result || result != index)
+            return false;
+        var parent = PInvoke.GetParent((HWND)hwnd);
+        var id = (uint)PInvoke.GetDlgCtrlID((HWND)hwnd) & 0xFFFF;
+        var wParam = (nuint)((PInvoke.CBN_SELCHANGE << 16) | id);
+        return Send(parent, PInvoke.WM_COMMAND, wParam, hwnd) is not null;
+    }
+
+    /// <summary>Posted, not sent: a click handler may run for a long time or open a modal dialog.</summary>
+    public static bool PostClick(nint hwnd) => PInvoke.PostMessage((HWND)hwnd, PInvoke.BM_CLICK, default, default);
+
+    public static bool SetText(nint hwnd, string text)
+    {
+        fixed (char* p = text)
+            return Send(hwnd, PInvoke.WM_SETTEXT, 0, (nint)p) is > 0;
+    }
+
     private static long? Send(nint hwnd, uint message, nuint wParam, nint lParam)
     {
         nuint result;

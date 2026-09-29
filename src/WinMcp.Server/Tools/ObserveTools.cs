@@ -84,4 +84,23 @@ public sealed class ObserveTools(WindowQuery windows, UiTreeService tree)
         [Description("resource.h name of a Win32/MFC control, e.g. 'IDC_EDIT_NAME' (requires --symbols).")] string? control_symbol = null,
         CancellationToken cancellationToken = default) =>
         tree.InspectAsync(hwnd, element, new ElementLocator(automation_id, name, null, control_type, null, control_symbol), cancellationToken);
+
+    [McpServerTool(Name = "wait_for", Title = "Wait for", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description(
+        "Waits until a condition holds, polling the UI: 'exists' / 'gone' (any element matching the criteria), "
+        + "'enabled', 'text_equals', 'text_contains' (exactly one element; text is its value, or its name if it has no value — e.g. a status label). "
+        + "Use after an action whose effect is not immediate. Returns TIMEOUT (retryable) with the last observed text if it doesn't happen.")]
+    public Task<WaitResult> WaitFor(
+        [Description("exists | gone | enabled | text_equals | text_contains")] string condition,
+        [Description("Expected text for text_equals/text_contains (case-sensitive).")] string? text = null,
+        [Description("Ref of the element to watch.")] string? element = null,
+        [Description("Window handle from list_windows; use with criteria.")] string? hwnd = null,
+        [Description("Exact AutomationId.")] string? automation_id = null,
+        [Description("Exact element name.")] string? name = null,
+        [Description("UI Automation control type.")] string? control_type = null,
+        [Description("resource.h name (requires --symbols).")] string? control_symbol = null,
+        [Description("Maximum wait in milliseconds (0–60000). Default 5000.")] int timeout_ms = UiTreeService.DefaultWaitTimeoutMs,
+        CancellationToken cancellationToken = default) =>
+        tree.WaitAsync(hwnd, element, new ElementLocator(automation_id, name, null, control_type, null, control_symbol),
+            ActionArguments.ParseCondition(condition), text, timeout_ms, cancellationToken);
 }

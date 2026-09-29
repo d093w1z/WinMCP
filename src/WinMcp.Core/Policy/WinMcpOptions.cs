@@ -14,7 +14,10 @@ public enum ServerMode
 public sealed record WinMcpOptions(ServerMode Mode, IReadOnlyList<string> Allow, IReadOnlyDictionary<string, string> Symbols)
 {
     public const string Usage =
-        "Usage: WinMcp.Server [--mode observe|control] [--allow <process-name-or-exe-path>]... [--symbols <process-name>=<path-to-resource.h>]...";
+        "Usage: WinMcp.Server [--mode observe|control] [--allow <process-name-or-exe-path>]... [--symbols <process-name>=<path-to-resource.h>]... [--audit-dir <directory>]";
+
+    /// <summary>Where control actions are logged (JSONL, one file per day).</summary>
+    public string AuditDirectory { get; init; } = Audit.JsonlAuditLog.DefaultDirectory;
 
     public WinMcpOptions(ServerMode mode, IReadOnlyList<string> allow)
         : this(mode, allow, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase))
@@ -27,6 +30,7 @@ public sealed record WinMcpOptions(ServerMode Mode, IReadOnlyList<string> Allow,
         var mode = ServerMode.Observe;
         var allow = new List<string>();
         var symbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string? auditDirectory = null;
 
         for (var i = 0; i < args.Count; i++)
         {
@@ -58,6 +62,9 @@ public sealed record WinMcpOptions(ServerMode Mode, IReadOnlyList<string> Allow,
                         throw new ArgumentException($"--symbols file not found: '{path}'.");
                     symbols[process] = Path.GetFullPath(path);
                     break;
+                case "--audit-dir":
+                    auditDirectory = Path.GetFullPath(Value(args, ref i).Trim('"'));
+                    break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");
             }
@@ -66,7 +73,8 @@ public sealed record WinMcpOptions(ServerMode Mode, IReadOnlyList<string> Allow,
         if (mode == ServerMode.Control && allow.Count == 0)
             throw new ArgumentException("--mode control requires at least one --allow entry.");
 
-        return new WinMcpOptions(mode, allow, symbols);
+        var options = new WinMcpOptions(mode, allow, symbols);
+        return auditDirectory is null ? options : options with { AuditDirectory = auditDirectory };
     }
 
     private static string Value(IReadOnlyList<string> args, ref int i)

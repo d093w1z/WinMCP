@@ -61,4 +61,11 @@ public interface IUiAutomation
 
     /// <summary>Live details of one element. Throws ELEMENT_STALE when it no longer exists.</summary>
     Task<ElementExtras> GetElementExtrasAsync(ElementKey element, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Performs an action. Policy checks (allowlist, enabled, password) are the caller's job; implementations still
+    /// throw ELEMENT_DISABLED if the element became disabled meanwhile, PATTERN_NOT_SUPPORTED when no mechanism
+    /// applies, OPTION_NOT_FOUND for unknown options, and ELEMENT_STALE when the element is gone.
+    /// </summary>
+    Task<ActionOutcome> PerformAsync(ElementKey element, ElementAction action, CancellationToken cancellationToken);
 }

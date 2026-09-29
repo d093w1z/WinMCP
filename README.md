@@ -2,7 +2,7 @@
 
 An MCP server that gives AI agents semantic access to native Windows applications — HWND hierarchy, UI Automation tree and Win32 metadata — rather than screenshots and mouse coordinates.
 
-> **Status:** proof of concept, under active design. See [docs/design/mvp-plan.md](docs/design/mvp-plan.md). Tools so far (all read-only): `list_windows`, `inspect_window`, `get_ui_tree`, `find_elements`, `inspect_element`.
+> **Status:** proof of concept, under active design. See [docs/design/mvp-plan.md](docs/design/mvp-plan.md). Tools so far — read-only: `list_windows`, `inspect_window`, `get_ui_tree`, `find_elements`, `inspect_element`, `wait_for`; with `--mode control` also: `invoke`, `set_value`, `select_option`, `set_toggle`.
 
 ## Requirements
 
@@ -30,7 +30,7 @@ GUI tests (`Category=Windows`) launch `samples/WinMcp.TestApp` (and `charmap.exe
 WinMcp.Server [--mode observe|control] [--allow <process-name-or-exe-path>]... [--symbols <process-name>=<path-to-resource.h>]...
 ```
 
-- `--mode observe` (default) exposes read-only tools only; `control` (from M6) adds interaction tools and requires `--allow`.
+- `--mode observe` (default) exposes read-only tools only; `control` adds interaction tools and requires `--allow`. Interaction tools refuse disabled elements and password fields, and every action is appended to `%LOCALAPPDATA%\WinMCP\audit\audit-YYYYMMDD.jsonl` (change with `--audit-dir`).
 - `--allow` is repeatable. Only windows of allowlisted processes are ever visible to the agent; with no `--allow`, nothing is.
 - UAC/logon/credential UI and WinMCP itself can never be targeted.
 - `--symbols` maps a Win32/MFC application's control IDs to its `resource.h` names (`1000` → `IDC_EDIT_NAME`) in trees and `inspect_element`, and lets agents find controls by `control_symbol`. The file is re-read when it changes.
@@ -52,6 +52,8 @@ claude mcp add winmcp -- "<repo>\artifacts\winmcp\WinMcp.Server.exe" --allow Win
 ```
 
 Then launch `samples\WinMcp.TestApp` and ask, for example: *"Find the WinMCP test application, describe its controls, and tell me the current status."*
+
+To let the agent interact, change `"observe"` to `"control"` in `.mcp.json` (or pass `--mode control`) and reconnect. Then try the MVP prompt: *"Find the WinMCP test application, inspect its UI, enter 'Mukesh' into the Name field, select HTML from the Type dropdown, click Apply, and tell me the resulting status."*
 
 A running client keeps its server process (and build) until you reconnect; there's no need to stop it before publishing.
 
