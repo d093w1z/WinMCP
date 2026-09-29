@@ -279,7 +279,7 @@ Locator fields (all optional, AND-ed): `automation_id`, `control_id`, `control_s
   [e6] CheckBox "Enable feature" #enableCheckBox on
   [e7] Button "Apply" #applyButton
   [e8] Button "Cancel" #cancelButton
-  [e9] Button "Advanced…" #advancedButton disabled
+  [e9] Button "Advanced..." #advancedButton disabled
   [e10] Text "Status: Ready" #statusLabel
 (10 nodes, depth 2, truncated=false)
 ```
@@ -291,7 +291,7 @@ The outline is ~5–10× cheaper in tokens than nested JSON. `interactive_only` 
 ← {"matches":[
     {"ref":"e7","control_type":"Button","name":"Apply","automation_id":"applyButton","enabled":true},
     {"ref":"e8","control_type":"Button","name":"Cancel","automation_id":"cancelButton","enabled":true},
-    {"ref":"e9","control_type":"Button","name":"Advanced…","automation_id":"advancedButton","enabled":false}],
+    {"ref":"e9","control_type":"Button","name":"Advanced...","automation_id":"advancedButton","enabled":false}],
    "count":3}
 ```
 
@@ -340,7 +340,7 @@ The outline is ~5–10× cheaper in tokens than nested JSON. `interactive_only` 
     "code":"OPTION_NOT_FOUND",
     "message":"ComboBox 'Type:' has no option 'PDF'.",
     "details":{"available":["Text","HTML","Markdown"]},
-    "category":"caller","retryable":true,
+    "category":"caller","retryable":false,
     "hint":"Use one of the available options."}}
 ```
 
@@ -405,13 +405,14 @@ ActionResult { ok, action, element (ref), method, changed?, value_after? / state
 ### D.5 Error
 ```
 WinMcpError { code, message, category, retryable, hint?, details? }
-category ∈ caller      — agent/caller mistake: INVALID_ARGUMENT, ELEMENT_NOT_FOUND, AMBIGUOUS_MATCH,
-                          OPTION_NOT_FOUND, PATTERN_NOT_SUPPORTED, ELEMENT_DISABLED, ELEMENT_STALE
+category ∈ caller      — agent/caller mistake: INVALID_ARGUMENT, WINDOW_NOT_FOUND, ELEMENT_NOT_FOUND,
+                          AMBIGUOUS_MATCH, OPTION_NOT_FOUND, PATTERN_NOT_SUPPORTED, ELEMENT_DISABLED, ELEMENT_STALE
            policy      — TARGET_NOT_ALLOWED, OPERATION_NOT_PERMITTED, PASSWORD_FIELD
            environment — ACCESS_DENIED_ELEVATED, TARGET_NOT_RESPONDING, WINDOW_MINIMIZED,
-                          FOCUS_FAILED, TIMEOUT, WINDOW_CLOSED
+                          WINDOW_CLOSED, FOCUS_FAILED, TIMEOUT
            internal    — INTERNAL_ERROR (a WinMCP bug; always logged with stack to stderr)
 ```
+`retryable` means *the same call, unchanged, may succeed later* — only `TARGET_NOT_RESPONDING`, `FOCUS_FAILED` and `TIMEOUT`. Caller errors are never retryable as-is; the arguments must change. Category and retryability are derived from the code, never set independently (implemented in M1: `WinMcp.Core/Errors`).
 `category` is the main tool for "was it the agent or WinMCP?" triage: any `internal` error in an E2E run is a WinMCP bug by definition.
 
 ---
@@ -420,24 +421,27 @@ category ∈ caller      — agent/caller mistake: INVALID_ARGUMENT, ELEMENT_NOT
 
 ### E.1 Test application (WinForms, `WinMcp.TestApp`)
 
-v1 (built in M1, used by MVP):
+v1 (built in M1, used by MVP; contract pinned by `TestAppContractTests`):
 ```
 Name:            [________________]        #nameTextBox
 Type:            [ Text ▼ ]                #typeComboBox (DropDownList: Text, HTML, Markdown)
 Enable feature:  [x]                       #enableCheckBox (default on)
-                 [ Apply ] [ Cancel ] [ Advanced… ]   #applyButton #cancelButton #advancedButton (disabled)
-                 [ Slow apply ] [ Add field ]         #slowApplyButton #addFieldButton
+                 [ Apply ] [ Cancel ] [ Advanced... ]  #applyButton #cancelButton #advancedButton (disabled)
+                 [ Slow apply ] [ Add field ]          #slowApplyButton #addFieldButton
+Dynamic 1:       [________________]        #dynamicTextBox1..3 (only after Add field)
 Status: Ready                              #statusLabel
-Events: 0 []                               #eventLogLabel (count + ordered event names: TextChanged, SelectedIndexChanged, CheckedChanged, DropDown, DropDownClosed)
+Events: 0 []                               #eventLogLabel
 (hidden) #hiddenTextBox (Visible=false)
 ```
 Deterministic behavior:
 - **Apply** → `Status: Applied: Name=<name>; Type=<type>; Feature=<On|Off>`
-- **Cancel** → clears inputs to defaults, `Status: Ready`
-- **Slow apply** → same as Apply after a fixed 1500 ms `Task.Delay` (tests `wait_for`)
-- **Add field** → creates `#dynamicTextBox1` at runtime (dynamic controls)
-- **Advanced…** enabled only when *Enable feature* is on *and* Name is non-empty
-- `--position x,y` and `--size` args for stable placement; fixed font; no animations; no timers besides Slow apply.
+- **Cancel** → restores all defaults, **removes dynamic fields, clears the event log**, `Status: Ready` — a full in-process reset so tests needn't relaunch
+- **Slow apply** → `Status: Applying...` immediately, then Apply after a fixed 1500 ms (tests `wait_for`)
+- **Add field** → creates `Dynamic N:` + `#dynamicTextBoxN`, max 3
+- **Advanced...** enabled only when *Enable feature* is on *and* Name is non-empty; click → `Status: Advanced options opened`
+- **Event log** format `Events: <count> [<control>.<event>, ...]`, e.g. `nameTextBox.TextChanged`, `typeComboBox.SelectedIndexChanged`, `typeComboBox.DropDown`, `typeComboBox.DropDownClosed`, `enableCheckBox.CheckedChanged`, `addFieldButton.FieldAdded`, `dynamicTextBox1.TextChanged`
+- Captions use ASCII `...`, not `…`, so agents and tests can type them
+- `--position x,y` for stable placement; fixed font (Segoe UI 9pt); PerMonitorV2 via `ApplicationHighDpiMode`; no animations or timers besides Slow apply.
 - The **Events** log proves an action went through the app's real event handlers, not just a visual change. Tests assert *which* events occurred, not exact counts (M0: `ValuePattern.SetValue` raises `TextChanged` twice).
 
 v2 (M9, post-MVP): MenuStrip + context menu, ListView (details, 5 rows), TreeView (3 levels), modal dialog (`OK/Cancel`), tab control, a custom-painted control with no accessibility (to test degradation).
@@ -493,8 +497,8 @@ Flakiness controls: no `Thread.Sleep` in tests (use `wait_for`/polling with dead
 | M | Deliverable | Runnable proof |
 |---|-------------|----------------|
 | **M0 — Spike (1–2 days)** | Throwaway console app: FlaUI on .NET 10 dumps the UIA tree of Notepad and a scratch WinForms form with CacheRequest; measure time; confirm timeouts API, DPI awareness, `NativeWindowHandle`/`GetDlgCtrlID` values | Console prints tree + timings. Findings appended to this doc. |
-| **M1 — Skeleton + TestApp v1** | Solution, Directory.*.props, 3 src + test projects, TestApp v1 complete, CI build | TestApp runs; `dotnet test` green (placeholder tests) |
-| **M2 — MCP server + `list_windows`** | Stdio host, config/allowlist/mode, `list_windows` (Win32 only), Server.Tests with FakeDesktop | Registered in Claude Code; "list my windows" works |
+| **M1 — Skeleton + TestApp v1** ✅ | `WinMcp.slnx`, `global.json` (SDK + Microsoft Testing Platform), Directory.Build/Packages.props, Core (error model), Server (stdio host, no tools), TestApp v1, Core.Tests, Windows.IntegrationTests (TestApp contract via raw FlaUI), E2ETests (stdio handshake), CI workflow | 54 tests green; GUI tests 5/5 repeat runs green |
+| **M2 — MCP server + `list_windows`** | Adds **`WinMcp.Windows`** and **`WinMcp.Server.Tests`** (deferred from M1 — nothing to hold yet, and an empty test assembly fails under MTP). Config/allowlist/mode, `list_windows` (Win32 only), FakeDesktop | Registered in Claude Code; "list my windows" works |
 | **M3 — `inspect_window` + integration harness** | Process details, elevation/bitness, TestApp fixture | Integration tests 1–3 green |
 | **M4 — `get_ui_tree` + `find_elements` + refs** | CacheRequest bulk fetch, pruning, outline, registry | Tests 4–7; agent can describe the TestApp UI |
 | **M5 — `inspect_element` + symbol mapping** | Details, patterns, HWND/control-ID correlation, labeled_by, suggested locator; `resource.h` parser/lookup (§A.7) + `--symbols` config + `control_symbol` in details/outline/locators | Test 8 + parser unit tests; agent can read Status → **read-only demo**. Live symbol verification lands with the MFC app (M10) |

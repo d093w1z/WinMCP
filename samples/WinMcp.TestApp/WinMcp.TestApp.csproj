@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Deterministic target application for WinMCP integration and E2E tests. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(WinMcpWindowsTfm)</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Consumed by ApplicationConfiguration.Initialize(); fixed font keeps layout identical across machines. -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationVisualStyles>true</ApplicationVisualStyles>
+    <ApplicationDefaultFont>Segoe UI, 9pt</ApplicationDefaultFont>
+  </PropertyGroup>
+
+</Project>

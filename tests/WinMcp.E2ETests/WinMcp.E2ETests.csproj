@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Spawns the real WinMcp.Server.exe over stdio and talks MCP to it, exactly as a client would. -->
+  <PropertyGroup>
+    <TargetFramework>$(WinMcpWindowsTfm)</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="ModelContextProtocol" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Build-order dependency only; the server runs as a separate process from its own output folder. -->
+    <ProjectReference Include="..\..\src\WinMcp.Server\WinMcp.Server.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>ServerPath</_Parameter1>
+      <_Parameter2>$(MSBuildThisFileDirectory)..\..\src\WinMcp.Server\bin\$(Configuration)\$(TargetFramework)\WinMcp.Server.exe</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

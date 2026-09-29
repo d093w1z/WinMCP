@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build WinMcp.slnx -c Release
+
+      # Everything that doesn't need an interactive desktop. Exit code 8 = an assembly had
+      # all its tests filtered out (the GUI test assembly), which is expected here.
+      - name: Test (no GUI)
+        run: dotnet test --solution WinMcp.slnx -c Release --no-build --filter-not-trait "Category=Windows" --ignore-exit-code 8
+
+  # Experimental: are hosted runners' desktop sessions reliable enough for UI Automation?
+  # To be decided at M3 (plan §E.5); a self-hosted runner is the fallback.
+  ui-tests:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build WinMcp.slnx -c Release
+
+      - name: Test (GUI)
+        run: dotnet test --project tests/WinMcp.Windows.IntegrationTests -c Release --no-build
