@@ -10,6 +10,12 @@ internal sealed class MainForm : Form
     public const string ApplyingStatus = "Status: Applying...";
     public const string AdvancedStatus = "Status: Advanced options opened";
     public static readonly TimeSpan SlowApplyDelay = TimeSpan.FromMilliseconds(1500);
+
+    /// <summary>
+    /// Exceeds WinMCP's 3 s UIA timeout and leaves a ~3 s window after Windows flags the app as hung (~5 s),
+    /// so tests can observe both.
+    /// </summary>
+    public static readonly TimeSpan FreezeDuration = TimeSpan.FromSeconds(8);
     private const int MaxDynamicFields = 3;
 
     private readonly TextBox _name;
@@ -23,7 +29,7 @@ internal sealed class MainForm : Form
     private int _dynamicFieldCount;
     private bool _resetting;
 
-    public MainForm(Point? position)
+    public MainForm(Point? position, int stressCount = 0)
     {
         Name = "MainForm";
         Text = "WinMCP Test App";
@@ -57,10 +63,15 @@ internal sealed class MainForm : Form
         _advanced = new Button { Name = "advancedButton", Text = "Advanced...", Location = new Point(300, 105), Width = 80, Enabled = false, TabIndex = tab++ };
         var slowApply = new Button { Name = "slowApplyButton", Text = "Slow apply", Location = new Point(130, 140), Width = 80, TabIndex = tab++ };
         var addField = new Button { Name = "addFieldButton", Text = "Add field", Location = new Point(215, 140), Width = 80, TabIndex = tab++ };
-        Controls.AddRange([apply, cancel, _advanced, slowApply, addField]);
+        // Blocks the UI thread: the app stops pumping messages, exactly like a hung application.
+        var freeze = new Button { Name = "freezeButton", Text = "Freeze 8s", Location = new Point(300, 140), Width = 80, TabIndex = tab++ };
+        Controls.AddRange([apply, cancel, _advanced, slowApply, addField, freeze]);
 
         // Never shown: tests that hidden controls are not exposed or actionable.
-        Controls.Add(new TextBox { Name = "hiddenTextBox", Location = new Point(300, 140), Visible = false });
+        Controls.Add(new TextBox { Name = "hiddenTextBox", Location = new Point(385, 140), Visible = false });
+
+        if (stressCount > 0)
+            AddStressPanel(stressCount);
 
         _status = new Label { Name = "statusLabel", Text = ReadyStatus, Location = new Point(12, 280), AutoSize = true };
         _events = new Label { Name = "eventLogLabel", Location = new Point(12, 305), AutoSize = true, MaximumSize = new Size(456, 0) };
@@ -84,6 +95,18 @@ internal sealed class MainForm : Form
             Apply();
         };
         addField.Click += (_, _) => AddDynamicField();
+        freeze.Click += (_, _) => Thread.Sleep(FreezeDuration);
+    }
+
+    private void AddStressPanel(int count)
+    {
+        var panel = new FlowLayoutPanel { Name = "stressPanel", Location = new Point(12, 345), Size = new Size(456, 200), AutoScroll = true };
+        panel.SuspendLayout();
+        for (var i = 1; i <= count; i++)
+            panel.Controls.Add(new Button { Name = $"stressButton{i}", Text = $"Item {i}", Width = 70 });
+        panel.ResumeLayout();
+        Controls.Add(panel);
+        ClientSize = new Size(ClientSize.Width, 555);
     }
 
     private void Apply() =>

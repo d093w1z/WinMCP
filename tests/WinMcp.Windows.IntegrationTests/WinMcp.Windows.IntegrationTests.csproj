@@ -4,6 +4,8 @@
   <PropertyGroup>
     <TargetFramework>$(WinMcpWindowsTfm)</TargetFramework>
     <OutputType>Exe</OutputType>
+    <!-- LibraryImport (PostMessage in HungTargetTests) generates unsafe marshalling code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

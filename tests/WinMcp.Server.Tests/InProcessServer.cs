@@ -4,8 +4,10 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
+using WinMcp.Core.Automation;
 using WinMcp.Core.Desktop;
 using WinMcp.Core.Policy;
+using WinMcp.Testing;
 
 namespace WinMcp.Server.Tests;
 
@@ -22,7 +24,10 @@ internal sealed class InProcessServer : IAsyncDisposable
 
     public McpClient Client { get; }
 
-    public static async Task<InProcessServer> StartAsync(IDesktop desktop, params string[] args)
+    public static Task<InProcessServer> StartAsync(IDesktop desktop, params string[] args) =>
+        StartAsync(desktop, new FakeUiAutomation(), args);
+
+    public static async Task<InProcessServer> StartAsync(IDesktop desktop, IUiAutomation automation, params string[] args)
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         var clientToServer = new Pipe();
@@ -31,6 +36,7 @@ internal sealed class InProcessServer : IAsyncDisposable
         var builder = Host.CreateApplicationBuilder();
         builder.Logging.ClearProviders();
         builder.Services.AddSingleton(desktop);
+        builder.Services.AddSingleton(automation);
         builder.Services
             .AddWinMcpServer(WinMcpOptions.Parse(args))
             .WithStreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream());

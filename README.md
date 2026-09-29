@@ -2,7 +2,7 @@
 
 An MCP server that gives AI agents semantic access to native Windows applications — HWND hierarchy, UI Automation tree and Win32 metadata — rather than screenshots and mouse coordinates.
 
-> **Status:** proof of concept, under active design. See [docs/design/mvp-plan.md](docs/design/mvp-plan.md). Tools so far: `list_windows`.
+> **Status:** proof of concept, under active design. See [docs/design/mvp-plan.md](docs/design/mvp-plan.md). Tools so far (all read-only): `list_windows`, `inspect_window`, `get_ui_tree`, `find_elements`.
 
 ## Requirements
 
@@ -43,7 +43,9 @@ Then start Claude Code in the repo root and approve the `winmcp` server when pro
 claude mcp add winmcp -- "<repo>\artifacts\mcp\WinMcp.Server.exe" --allow WinMcp.TestApp
 ```
 
-Then launch `samples\WinMcp.TestApp` and ask: *"List the windows WinMCP can see."*
+Then launch `samples\WinMcp.TestApp` and ask, for example: *"Find the WinMCP test application, describe its controls, and tell me the current status."*
+
+After pulling new changes, close sessions that use `winmcp`, re-run the publish command, and reconnect (`/mcp` in Claude Code). A running client keeps the old server process, and Windows won't let the publish overwrite files it has open.
 
 ## Layout
 

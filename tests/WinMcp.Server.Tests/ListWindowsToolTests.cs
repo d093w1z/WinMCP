@@ -16,7 +16,7 @@ public sealed class ListWindowsToolTests
 
         var tools = await server.Client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);
 
-        Assert.Equal(["inspect_window", "list_windows"], tools.Select(t => t.Name).Order());
+        Assert.Equal(["find_elements", "get_ui_tree", "inspect_window", "list_windows"], tools.Select(t => t.Name).Order());
         Assert.All(tools, tool =>
         {
             Assert.True(tool.ProtocolTool.Annotations?.ReadOnlyHint);

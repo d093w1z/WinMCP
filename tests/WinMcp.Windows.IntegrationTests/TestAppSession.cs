@@ -11,18 +11,22 @@ namespace WinMcp.Windows.IntegrationTests;
 /// One TestApp process per test class (use as <c>IClassFixture&lt;TestAppSession&gt;</c>), driven with raw FlaUI.
 /// Tests call <see cref="Reset"/> first so each starts from the documented initial state without relaunching.
 /// </summary>
-public sealed class TestAppSession : IDisposable
+public class TestAppSession : IDisposable
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
     private readonly FlaApplication _app;
 
-    public TestAppSession()
+    public TestAppSession() : this("")
+    {
+    }
+
+    protected TestAppSession(string extraArguments)
     {
         var path = Path.GetFullPath(ExePath);
         if (!File.Exists(path))
             throw new FileNotFoundException("TestApp executable not found. Build samples/WinMcp.TestApp first or set WINMCP_TESTAPP_PATH.", path);
 
-        _app = FlaApplication.Launch(path, "--position 200,200");
+        _app = FlaApplication.Launch(path, $"--position 200,200 {extraArguments}".Trim());
         Window = _app.GetMainWindow(Automation, TimeSpan.FromSeconds(15))
             ?? throw new InvalidOperationException("TestApp main window did not appear.");
     }
@@ -93,10 +97,23 @@ public sealed class TestAppSession : IDisposable
         }
     }
 
+    public WinMcp.Core.Desktop.WindowHandle WindowHandle => new(Window.Properties.NativeWindowHandle.Value);
+
     public void Dispose()
     {
         _app.Kill();
         _app.Dispose();
         Automation.Dispose();
+        GC.SuppressFinalize(this);
+    }
+}
+
+/// <summary>TestApp with 600 extra buttons, for tree-size measurements.</summary>
+public sealed class StressTestAppSession : TestAppSession
+{
+    public const int ButtonCount = 600;
+
+    public StressTestAppSession() : base($"--stress {ButtonCount}")
+    {
     }
 }
