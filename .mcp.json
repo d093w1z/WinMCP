@@ -2,7 +2,7 @@
   "mcpServers": {
     "winmcp": {
       "type": "stdio",
-      "command": "src/WinMcp.Server/bin/Debug/net10.0-windows10.0.17763.0/WinMcp.Server.exe",
+      "command": "artifacts/mcp/WinMcp.Server.exe",
       "args": ["--mode", "observe", "--allow", "WinMcp.TestApp"]
     }
   }

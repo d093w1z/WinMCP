@@ -30,30 +30,62 @@ public sealed unsafe class Win32Desktop : IDesktop
         var windows = new List<WindowInfo>(handles.Count);
         foreach (var hwnd in handles)
         {
-            uint pid;
-            if (PInvoke.GetWindowThreadProcessId(hwnd, &pid) == 0)
-                continue; // window destroyed during enumeration
-
-            if (!processes.TryGetValue(pid, out var process))
-                processes[pid] = process = ReadProcess(pid);
-
-            var owner = PInvoke.GetWindow(hwnd, GET_WINDOW_CMD.GW_OWNER);
-            windows.Add(new WindowInfo(
-                Hwnd: ToHandle(hwnd),
-                Title: ReadTitle(hwnd),
-                ClassName: ReadClassName(hwnd),
-                Process: process,
-                Visible: PInvoke.IsWindowVisible(hwnd),
-                Cloaked: IsCloaked(hwnd),
-                Enabled: PInvoke.IsWindowEnabled(hwnd),
-                Minimized: PInvoke.IsIconic(hwnd),
-                Maximized: PInvoke.IsZoomed(hwnd),
-                Foreground: hwnd == foreground,
-                Bounds: ReadBounds(hwnd),
-                Dpi: (int)PInvoke.GetDpiForWindow(hwnd),
-                Owner: owner.IsNull ? null : ToHandle(owner)));
+            if (ReadWindow(hwnd, foreground, processes, out _) is { } window)
+                windows.Add(window);
         }
         return windows;
+    }
+
+    public WindowDetails? GetWindowDetails(WindowHandle handle)
+    {
+        var hwnd = (HWND)(nint)handle.Value;
+        if (!PInvoke.IsWindow(hwnd) || ReadWindow(hwnd, PInvoke.GetForegroundWindow(), [], out var threadId) is not { } window)
+            return null;
+
+        var parent = PInvoke.GetAncestor(hwnd, GET_ANCESTOR_FLAGS.GA_PARENT);
+        var childClasses = new List<string>();
+        PInvoke.EnumChildWindows(hwnd, (child, _) =>
+        {
+            childClasses.Add(ReadClassName(child));
+            return true;
+        }, default);
+
+        return new WindowDetails(
+            window,
+            Parent: parent.IsNull || parent == PInvoke.GetDesktopWindow() ? null : ToHandle(parent),
+            Style: (uint)PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE),
+            ExStyle: (uint)PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE),
+            Responding: !PInvoke.IsHungAppWindow(hwnd),
+            ThreadId: (int)threadId,
+            childClasses);
+    }
+
+    /// <returns>Null when the window was destroyed while being read.</returns>
+    private static WindowInfo? ReadWindow(HWND hwnd, HWND foreground, Dictionary<uint, ProcessInfo> processes, out uint threadId)
+    {
+        uint pid;
+        threadId = PInvoke.GetWindowThreadProcessId(hwnd, &pid);
+        if (threadId == 0)
+            return null;
+
+        if (!processes.TryGetValue(pid, out var process))
+            processes[pid] = process = ReadProcess(pid);
+
+        var owner = PInvoke.GetWindow(hwnd, GET_WINDOW_CMD.GW_OWNER);
+        return new WindowInfo(
+            Hwnd: ToHandle(hwnd),
+            Title: ReadTitle(hwnd),
+            ClassName: ReadClassName(hwnd),
+            Process: process,
+            Visible: PInvoke.IsWindowVisible(hwnd),
+            Cloaked: IsCloaked(hwnd),
+            Enabled: PInvoke.IsWindowEnabled(hwnd),
+            Minimized: PInvoke.IsIconic(hwnd),
+            Maximized: PInvoke.IsZoomed(hwnd),
+            Foreground: hwnd == foreground,
+            Bounds: ReadBounds(hwnd),
+            Dpi: (int)PInvoke.GetDpiForWindow(hwnd),
+            Owner: owner.IsNull ? null : ToHandle(owner));
     }
 
     private static WindowHandle ToHandle(HWND hwnd) => new((nint)hwnd.Value);

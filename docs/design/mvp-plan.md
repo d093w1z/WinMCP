@@ -12,6 +12,8 @@ Status: **Draft for review** · Date: 2026-09-30 · Scope: planning only, no imp
 |------|----------|-----------|
 | 2026-09-30 | Non-allowlisted windows are **excluded entirely** from all tool output (only `excluded_count` returned) | Titles/contents of unrelated apps may be sensitive or irrelevant. Revisit an opt-in listing mode later. |
 | 2026-09-30 | `resource.h` symbol mapping **moved from M11 into MVP (M5)** | Cheap to implement, pure Core logic, high value for developers debugging their own Win32/MFC apps. |
+| 2026-09-30 | Handles of non-allowlisted windows return **`WINDOW_NOT_FOUND`**, identical to nonexistent handles (not `TARGET_NOT_ALLOWED`) | Follows from the exclusion decision: a distinct error would confirm the window exists. `TARGET_NOT_ALLOWED` is kept for control actions whose target stops being allowlisted mid-session. |
+| 2026-09-30 | Claude Code runs a **published copy** (`artifacts/mcp/`) via `.mcp.json`, not `bin/` | A running client locks `bin/` and breaks every build and test run (hit during M3). Refresh with `dotnet publish src\WinMcp.Server -c Release -o artifacts\mcp`. |
 
 ---
 
@@ -501,7 +503,7 @@ Flakiness controls: no `Thread.Sleep` in tests (use `wait_for`/polling with dead
 | **M0 — Spike (1–2 days)** | Throwaway console app: FlaUI on .NET 10 dumps the UIA tree of Notepad and a scratch WinForms form with CacheRequest; measure time; confirm timeouts API, DPI awareness, `NativeWindowHandle`/`GetDlgCtrlID` values | Console prints tree + timings. Findings appended to this doc. |
 | **M1 — Skeleton + TestApp v1** ✅ | `WinMcp.slnx`, `global.json` (SDK + Microsoft Testing Platform), Directory.Build/Packages.props, Core (error model), Server (stdio host, no tools), TestApp v1, Core.Tests, Windows.IntegrationTests (TestApp contract via raw FlaUI), E2ETests (stdio handshake), CI workflow | 54 tests green; GUI tests 5/5 repeat runs green |
 | **M2 — MCP server + `list_windows`** ✅ | `WinMcp.Windows` (`Win32Desktop` via CsWin32), `WinMcp.Server.Tests` (real MCP client ↔ server over in-memory pipes, FakeDesktop). `--mode`/`--allow` parsing, `TargetPolicy` (allowlist + hard deny-list), `WindowQuery`, `list_windows`, structured error filter, server instructions, PMv2 manifest, `.mcp.json` for Claude Code | 114 tests green (E2E: TestApp discovered through MCP over stdio) |
-| **M3 — `inspect_window` + integration harness** | Process details, elevation/bitness, TestApp fixture | Integration tests 1–3 green |
+| **M3 — `inspect_window` + integration harness** ✅ | `inspect_window` (responding, decoded styles/ex-styles, owned windows, child-window class summary, framework hint); `TestAppSession` as a class fixture with `Reset()` | 147 tests green; GUI suite 3/3 repeat runs |
 | **M4 — `get_ui_tree` + `find_elements` + refs** | CacheRequest bulk fetch, pruning, outline, registry | Tests 4–7; agent can describe the TestApp UI |
 | **M5 — `inspect_element` + symbol mapping** | Details, patterns, HWND/control-ID correlation, labeled_by, suggested locator; `resource.h` parser/lookup (§A.7) + `--symbols` config + `control_symbol` in details/outline/locators | Test 8 + parser unit tests; agent can read Status → **read-only demo**. Live symbol verification lands with the MFC app (M10) |
 | **M6 — Interaction + `wait_for`** | invoke, set_value, select_option, set_toggle, fallbacks, policy re-validation, audit log | Tests 9–18; **golden scenario passes in integration test** |
@@ -610,6 +612,16 @@ Open items: **mixed/high-DPI behaviour is untested** (the machine is at 100%); r
 - **Hung apps:** enumeration uses only calls that don't send messages to the target (`GetWindowText` reads the cached caption cross-process), so a hung app can't block `list_windows`.
 - **Startup:** ~450 ms to the first MCP response; exits ~40 ms after stdin closes.
 - Plan §E.3 tests 1–3 are covered at the Win32 layer, and test 1 also end-to-end through MCP.
+
+## M3 implementation notes (2026-09-30)
+
+- **`inspect_window` accepts top-level windows only**; a control's handle gets `INVALID_ARGUMENT` pointing to top-level windows (controls are `inspect_element`'s job, M5).
+- **`owned_windows`** lists shown, allowlisted top-level windows whose owner is this window — the cheap, reliable way for an agent to notice a modal dialog before M9 adds dialog support.
+- **`child_windows`** = total descendant HWND count + the 15 most common classes. Class names are dictionary *keys*; the snake_case policy doesn't touch them (tested), so `WindowsForms10.BUTTON.app.0.…` arrives verbatim.
+- **`framework_hint`** is class-name heuristics only (WinForms, WPF, MFC, WinUI 3, UWP, Chromium, Qt, Java AWT, plain `#32770` dialog). Loaded-module detection (e.g. `mfc140u.dll`) stays in M11.
+- **Styles** are decoded to WinUser.h names, with `WS_CAPTION` in place of `WS_BORDER|WS_DLGFRAME` and unknown bits reported as hex rather than dropped.
+- Test harness: one TestApp per test class, reset via Cancel before each test — the GUI suite doubled to 12 tests with no increase in run time (~7.5 s).
+- Not in M3 despite the original row: process details and elevation (already delivered in M2). Hung-window behaviour (`responding: false`) is untested until a hang control is added to the TestApp alongside UIA timeouts (M4).
 
 ---
 

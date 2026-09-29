@@ -4,12 +4,16 @@ namespace WinMcp.Windows.IntegrationTests;
 
 /// <summary>Pins the TestApp v1 contract (plan §E.1) that every later WinMCP integration and E2E test relies on.</summary>
 [Trait("Category", "Windows")]
-public sealed class TestAppContractTests : IDisposable
+public sealed class TestAppContractTests : IClassFixture<TestAppSession>
 {
     private const string GoldenStatus = "Status: Applied: Name=Mukesh; Type=HTML; Feature=On";
-    private readonly TestAppSession _app = new();
+    private readonly TestAppSession _app;
 
-    public void Dispose() => _app.Dispose();
+    public TestAppContractTests(TestAppSession app)
+    {
+        _app = app;
+        _app.Reset();
+    }
 
     [Fact]
     public void Starts_in_the_documented_initial_state()

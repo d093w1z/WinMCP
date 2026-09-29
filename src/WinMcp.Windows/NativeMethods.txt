@@ -1,5 +1,11 @@
 // Window enumeration & properties
 EnumWindows
+EnumChildWindows
+IsWindow
+GetAncestor
+GetDesktopWindow
+GetWindowLong
+IsHungAppWindow
 GetWindowTextLength
 GetWindowText
 GetClassName

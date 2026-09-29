@@ -7,9 +7,21 @@ internal sealed class FakeDesktop(params WindowInfo[] windows) : IDesktop
 {
     public List<WindowInfo> Windows { get; } = [.. windows];
 
+    /// <summary>Explicit details per handle; windows without an entry get <see cref="DefaultDetails"/>.</summary>
+    public Dictionary<WindowHandle, WindowDetails> Details { get; } = [];
+
     public Exception? ThrowOnEnumerate { get; set; }
 
     public IReadOnlyList<WindowInfo> GetTopLevelWindows() => ThrowOnEnumerate is { } ex ? throw ex : Windows;
+
+    public WindowDetails? GetWindowDetails(WindowHandle hwnd) =>
+        Details.TryGetValue(hwnd, out var details) ? details
+        : Windows.FirstOrDefault(w => w.Hwnd == hwnd) is { } window ? DefaultDetails(window)
+        : null;
+
+    /// <summary>A responsive, captioned top-level window with no children.</summary>
+    public static WindowDetails DefaultDetails(WindowInfo window, params string[] childClasses) =>
+        new(window, Parent: null, Style: 0x16CA0000, ExStyle: 0x00040100, Responding: true, ThreadId: 7, childClasses);
 
     public static WindowInfo Window(
         string process,
@@ -18,11 +30,13 @@ internal sealed class FakeDesktop(params WindowInfo[] windows) : IDesktop
         long hwnd = 0x1000,
         bool visible = true,
         bool cloaked = false,
-        string? path = null) =>
+        string? path = null,
+        string className = "TestWindowClass",
+        long? owner = null) =>
         new(
             Hwnd: new WindowHandle(hwnd),
             Title: title,
-            ClassName: "TestWindowClass",
+            ClassName: className,
             Process: new ProcessInfo(pid, process, path ?? $@"C:\Apps\{process}.exe", "x64", Elevated: false),
             Visible: visible,
             Cloaked: cloaked,
@@ -32,5 +46,5 @@ internal sealed class FakeDesktop(params WindowInfo[] windows) : IDesktop
             Foreground: false,
             Bounds: new Rect(10, 20, 300, 200),
             Dpi: 96,
-            Owner: null);
+            Owner: owner is { } o ? new WindowHandle(o) : null);
 }

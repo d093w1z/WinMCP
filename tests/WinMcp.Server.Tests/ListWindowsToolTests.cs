@@ -16,11 +16,13 @@ public sealed class ListWindowsToolTests
 
         var tools = await server.Client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);
 
-        var tool = Assert.Single(tools);
-        Assert.Equal("list_windows", tool.Name);
-        Assert.True(tool.ProtocolTool.Annotations?.ReadOnlyHint);
-        Assert.False(tool.ProtocolTool.Annotations?.DestructiveHint);
-        Assert.NotNull(tool.ProtocolTool.OutputSchema);
+        Assert.Equal(["inspect_window", "list_windows"], tools.Select(t => t.Name).Order());
+        Assert.All(tools, tool =>
+        {
+            Assert.True(tool.ProtocolTool.Annotations?.ReadOnlyHint);
+            Assert.False(tool.ProtocolTool.Annotations?.DestructiveHint);
+            Assert.NotNull(tool.ProtocolTool.OutputSchema);
+        });
     }
 
     [Fact]
@@ -28,7 +30,7 @@ public sealed class ListWindowsToolTests
     {
         await using var server = await InProcessServer.StartAsync(Desktop());
 
-        var tool = Assert.Single(await server.Client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken));
+        var tool = Assert.Single(await server.Client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken), t => t.Name == "list_windows");
 
         var properties = tool.ProtocolTool.InputSchema.GetProperty("properties").EnumerateObject().Select(p => p.Name);
         Assert.Equal(["process_name", "title_contains", "pid", "include_hidden"], properties);

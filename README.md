@@ -31,10 +31,16 @@ WinMcp.Server [--mode observe|control] [--allow <process-name-or-exe-path>]...
 
 ### Claude Code
 
-This repo's [`.mcp.json`](.mcp.json) registers the Debug build in observe mode with only the TestApp allowlisted. Build first, then start Claude Code in the repo root and approve the `winmcp` server when prompted. Or register it yourself:
+This repo's [`.mcp.json`](.mcp.json) registers a published copy in observe mode with only the TestApp allowlisted. It runs from `artifacts/mcp/` rather than `bin/`, so a running client never locks the files that builds and tests overwrite:
 
 ```powershell
-claude mcp add winmcp -- "<repo>\src\WinMcp.Server\bin\Debug\net10.0-windows10.0.17763.0\WinMcp.Server.exe" --allow WinMcp.TestApp
+dotnet publish src\WinMcp.Server -c Release -o artifacts\mcp   # refresh; reconnect the server in your client afterwards
+```
+
+Then start Claude Code in the repo root and approve the `winmcp` server when prompted. Or register it yourself:
+
+```powershell
+claude mcp add winmcp -- "<repo>\artifacts\mcp\WinMcp.Server.exe" --allow WinMcp.TestApp
 ```
 
 Then launch `samples\WinMcp.TestApp` and ask: *"List the windows WinMCP can see."*

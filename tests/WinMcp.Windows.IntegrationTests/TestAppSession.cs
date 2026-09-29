@@ -8,10 +8,10 @@ using FlaApplication = FlaUI.Core.Application;
 namespace WinMcp.Windows.IntegrationTests;
 
 /// <summary>
-/// Launches a fresh TestApp process and drives it with raw FlaUI. Until WinMcp.Windows exists (M2+),
-/// this is how the TestApp contract itself is verified.
+/// One TestApp process per test class (use as <c>IClassFixture&lt;TestAppSession&gt;</c>), driven with raw FlaUI.
+/// Tests call <see cref="Reset"/> first so each starts from the documented initial state without relaunching.
 /// </summary>
-internal sealed class TestAppSession : IDisposable
+public sealed class TestAppSession : IDisposable
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(5);
     private readonly FlaApplication _app;
@@ -70,6 +70,15 @@ internal sealed class TestAppSession : IDisposable
             ?? throw new InvalidOperationException($"Option '{option}' not found in #{comboId}.");
         item.Patterns.SelectionItem.Pattern.Select();
         expandCollapse.Collapse();
+    }
+
+    /// <summary>Cancel restores defaults, removes dynamic fields and clears the event log (TestApp contract).</summary>
+    public void Reset()
+    {
+        Invoke("cancelButton");
+        WaitUntil(
+            () => Text("eventLogLabel") == "Events: 0 []" && Text("statusLabel") == "Status: Ready",
+            "TestApp is back in its initial state");
     }
 
     public static void WaitUntil(Func<bool> condition, string description, TimeSpan? timeout = null)

@@ -37,6 +37,56 @@ public sealed class WindowQuery(IDesktop desktop, TargetPolicy policy)
         return new WindowList(matches, excluded, matches.Count == 0 ? HintForEmpty() : null);
     }
 
+    public const int MaxChildClassesReported = 15;
+
+    /// <summary>
+    /// Details of one top-level window. A window of a non-allowlisted application yields the same
+    /// WINDOW_NOT_FOUND as a nonexistent handle, so the tool can't be used to confirm what else is running.
+    /// </summary>
+    public WindowInspection Inspect(string? hwnd)
+    {
+        if (!WindowHandle.TryParse(hwnd, out var handle))
+            throw new WinMcpException(new WinMcpError(
+                WinMcpErrorCode.InvalidArgument,
+                $"'{hwnd}' is not a window handle.",
+                Hint: "Use an 'hwnd' value returned by list_windows, e.g. 'hwnd:0x000A0B1C'."));
+
+        var details = desktop.GetWindowDetails(handle);
+        if (details is null || !policy.IsAllowed(details.Window.Process))
+            throw new WinMcpException(new WinMcpError(
+                WinMcpErrorCode.WindowNotFound,
+                $"No accessible window {handle}.",
+                Hint: "The window may have closed. Call list_windows for current handles."));
+
+        if (details.Parent is not null)
+            throw new WinMcpException(new WinMcpError(
+                WinMcpErrorCode.InvalidArgument,
+                $"{handle} is a child window (a control), not a top-level window.",
+                Hint: "Pass a top-level window from list_windows."));
+
+        var owned = desktop.GetTopLevelWindows()
+            .Where(w => w.Owner == handle && w.Shown && policy.IsAllowed(w.Process))
+            .Select(w => new WindowSummary(w.Hwnd, w.Title, w.ClassName))
+            .ToList();
+
+        var byClass = details.ChildClassNames
+            .GroupBy(c => c)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key, StringComparer.Ordinal)
+            .Take(MaxChildClassesReported)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        return new WindowInspection(
+            details.Window,
+            details.Responding,
+            details.ThreadId,
+            WindowStyles.DecodeStyle(details.Style),
+            WindowStyles.DecodeExStyle(details.ExStyle),
+            FrameworkHint.Guess(details.Window.ClassName, details.ChildClassNames),
+            owned,
+            new ChildWindowSummary(details.ChildClassNames.Count, byClass));
+    }
+
     private string HintForEmpty() => policy.AllowList.Count == 0
         ? "No applications are allowlisted, so no windows are visible. The user must start WinMCP with --allow <process-name>."
         : $"No matching windows. Only these applications are visible: {string.Join(", ", policy.AllowList)}. "

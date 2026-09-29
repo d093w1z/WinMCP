@@ -37,6 +37,17 @@ public sealed class ListWindowsE2ETests
             Assert.Equal("WinMCP Test App", window.GetProperty("title").GetString());
             Assert.Equal(testApp.Id, window.GetProperty("process").GetProperty("pid").GetInt32());
             Assert.StartsWith("hwnd:0x", window.GetProperty("hwnd").GetString());
+
+            // The agent's natural next step: inspect the window it just found, by handle.
+            var inspection = await client.CallToolAsync(
+                "inspect_window",
+                new Dictionary<string, object?> { ["hwnd"] = window.GetProperty("hwnd").GetString() },
+                cancellationToken: cancellationToken);
+            Assert.NotEqual(true, inspection.IsError);
+            var details = Structured(inspection);
+            Assert.True(details.GetProperty("responding").GetBoolean());
+            Assert.Equal("winforms", details.GetProperty("framework_hint").GetString());
+            Assert.True(details.GetProperty("child_windows").GetProperty("count").GetInt32() >= 12);
         }
         finally
         {
