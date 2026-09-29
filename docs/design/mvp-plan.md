@@ -366,13 +366,15 @@ Wire format is `snake_case` JSON; C# types are records.
 
 ### D.1 Application / Process
 ```
-ProcessInfo  { pid, name, path, bitness (32|64|arm64), elevated, integrity_level, ui_framework_hint?, allowed }
+ProcessInfo  { pid, name, path?, architecture? (x86|x64|arm64), elevated? }      (implemented M2; null = couldn't query)
+             later: integrity_level, ui_framework_hint
 ```
 
 ### D.2 Window
 ```
-WindowInfo   { hwnd, title, class_name, process: ProcessInfo, visible, enabled, minimized, maximized,
-               foreground, cloaked, bounds: Rect, dpi, owner_hwnd?, parent_hwnd?, is_dialog }
+WindowInfo   { hwnd, title, class_name, process: ProcessInfo, visible, cloaked, enabled, minimized, maximized,
+               foreground, bounds: Rect (DWM visible frame), dpi, owner? }                 (implemented M2)
+             later: is_dialog
 WindowDetail : WindowInfo + { style_flags[], ex_style_flags[], child_hwnd_count, top_level_children[],
                uia_root_ref, responding }
 ```
@@ -498,7 +500,7 @@ Flakiness controls: no `Thread.Sleep` in tests (use `wait_for`/polling with dead
 |---|-------------|----------------|
 | **M0 — Spike (1–2 days)** | Throwaway console app: FlaUI on .NET 10 dumps the UIA tree of Notepad and a scratch WinForms form with CacheRequest; measure time; confirm timeouts API, DPI awareness, `NativeWindowHandle`/`GetDlgCtrlID` values | Console prints tree + timings. Findings appended to this doc. |
 | **M1 — Skeleton + TestApp v1** ✅ | `WinMcp.slnx`, `global.json` (SDK + Microsoft Testing Platform), Directory.Build/Packages.props, Core (error model), Server (stdio host, no tools), TestApp v1, Core.Tests, Windows.IntegrationTests (TestApp contract via raw FlaUI), E2ETests (stdio handshake), CI workflow | 54 tests green; GUI tests 5/5 repeat runs green |
-| **M2 — MCP server + `list_windows`** | Adds **`WinMcp.Windows`** and **`WinMcp.Server.Tests`** (deferred from M1 — nothing to hold yet, and an empty test assembly fails under MTP). Config/allowlist/mode, `list_windows` (Win32 only), FakeDesktop | Registered in Claude Code; "list my windows" works |
+| **M2 — MCP server + `list_windows`** ✅ | `WinMcp.Windows` (`Win32Desktop` via CsWin32), `WinMcp.Server.Tests` (real MCP client ↔ server over in-memory pipes, FakeDesktop). `--mode`/`--allow` parsing, `TargetPolicy` (allowlist + hard deny-list), `WindowQuery`, `list_windows`, structured error filter, server instructions, PMv2 manifest, `.mcp.json` for Claude Code | 114 tests green (E2E: TestApp discovered through MCP over stdio) |
 | **M3 — `inspect_window` + integration harness** | Process details, elevation/bitness, TestApp fixture | Integration tests 1–3 green |
 | **M4 — `get_ui_tree` + `find_elements` + refs** | CacheRequest bulk fetch, pruning, outline, registry | Tests 4–7; agent can describe the TestApp UI |
 | **M5 — `inspect_element` + symbol mapping** | Details, patterns, HWND/control-ID correlation, labeled_by, suggested locator; `resource.h` parser/lookup (§A.7) + `--symbols` config + `control_symbol` in details/outline/locators | Test 8 + parser unit tests; agent can read Status → **read-only demo**. Live symbol verification lands with the MFC app (M10) |
@@ -595,6 +597,19 @@ Environment: .NET 10.0.12, Windows 11 26100, x64, single monitor at 96 DPI (100%
 | 14 | Status after Invoke | Status label updated within 1–2 ms of `Invoke()` | `wait_for` is still needed for async apps (Slow apply) but not for the simple path. |
 
 Open items: **mixed/high-DPI behaviour is untested** (the machine is at 100%); rerun the spike at 150% scaling before M7 (screenshots). Hung-app detection timing (~5 s for `IsHungAppWindow`) measured once only.
+
+---
+
+## M2 implementation notes (2026-09-30)
+
+- **Policy before filters.** `list_windows` applies the allowlist first, then the caller's filters, and counts `excluded_count` before filtering, so a filter like `title_contains: "password"` can't reveal anything about non-allowlisted windows (unit- and server-tested). The hint on an empty result names the allowlist instead.
+- **Deny-list:** `consent`, `LogonUI`, `winlogon`, `CredentialUIBroker`, plus WinMCP's own PID. Deny wins over allow.
+- **`--mode` accepts only `observe`/`control`.** `Enum.TryParse` would have accepted `--mode 1` as control; the parser matches names explicitly and a test pins it.
+- **Parameter names are snake_case at the C# level** (`process_name`); the SDK uses them verbatim in the input schema. Output uses a snake_case `JsonSerializerOptions`, which **must set `TypeInfoResolver`**: the SDK makes the options read-only, which throws without one (caught by Server.Tests before any client saw it).
+- **Error mapping:** a call-tool filter sees tool exceptions. `WinMcpException` → `isError` + `{ "error": { code, message, category, retryable, hint?, details? } }` in both text and `structuredContent`; any other exception → `INTERNAL_ERROR` with the details logged to stderr only.
+- **Hung apps:** enumeration uses only calls that don't send messages to the target (`GetWindowText` reads the cached caption cross-process), so a hung app can't block `list_windows`.
+- **Startup:** ~450 ms to the first MCP response; exits ~40 ms after stdin closes.
+- Plan §E.3 tests 1–3 are covered at the Win32 layer, and test 1 also end-to-end through MCP.
 
 ---
 

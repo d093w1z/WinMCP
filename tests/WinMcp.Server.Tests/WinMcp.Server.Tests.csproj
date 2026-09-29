@@ -1,18 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- MCP client <-> WinMCP server in-process over in-memory pipes, against a fake desktop. No GUI. -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>$(WinMcpWindowsTfm)</TargetFramework>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="ModelContextProtocol" />
     <Using Include="Xunit" />
     <Compile Include="..\Shared\FakeDesktop.cs" Link="Shared\FakeDesktop.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\WinMcp.Core\WinMcp.Core.csproj" />
+    <ProjectReference Include="..\..\src\WinMcp.Server\WinMcp.Server.csproj" />
   </ItemGroup>
 
 </Project>

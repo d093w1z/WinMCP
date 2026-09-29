@@ -15,12 +15,17 @@
   <ItemGroup>
     <!-- Build-order dependency only; the server runs as a separate process from its own output folder. -->
     <ProjectReference Include="..\..\src\WinMcp.Server\WinMcp.Server.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\WinMcp.TestApp\WinMcp.TestApp.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>ServerPath</_Parameter1>
       <_Parameter2>$(MSBuildThisFileDirectory)..\..\src\WinMcp.Server\bin\$(Configuration)\$(TargetFramework)\WinMcp.Server.exe</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>TestAppPath</_Parameter1>
+      <_Parameter2>$(MSBuildThisFileDirectory)..\..\samples\WinMcp.TestApp\bin\$(Configuration)\$(TargetFramework)\WinMcp.TestApp.exe</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
 

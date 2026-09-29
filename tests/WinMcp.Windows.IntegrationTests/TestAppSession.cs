@@ -35,6 +35,8 @@ internal sealed class TestAppSession : IDisposable
 
     public UIA3Automation Automation { get; } = new();
 
+    public int ProcessId => _app.ProcessId;
+
     public Window Window { get; }
 
     public AutomationElement? TryFind(string automationId) =>

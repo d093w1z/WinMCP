@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\WinMcp.Windows\WinMcp.Windows.csproj" />
     <!-- Build-order dependency only; the app is launched as a separate process from its own output folder. -->
     <ProjectReference Include="..\..\samples\WinMcp.TestApp\WinMcp.TestApp.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>

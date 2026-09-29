@@ -5,10 +5,12 @@
   <Folder Name="/src/">
     <Project Path="src/WinMcp.Core/WinMcp.Core.csproj" />
     <Project Path="src/WinMcp.Server/WinMcp.Server.csproj" />
+    <Project Path="src/WinMcp.Windows/WinMcp.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/WinMcp.Core.Tests/WinMcp.Core.Tests.csproj" />
     <Project Path="tests/WinMcp.E2ETests/WinMcp.E2ETests.csproj" />
+    <Project Path="tests/WinMcp.Server.Tests/WinMcp.Server.Tests.csproj" />
     <Project Path="tests/WinMcp.Windows.IntegrationTests/WinMcp.Windows.IntegrationTests.csproj" />
   </Folder>
 </Solution>

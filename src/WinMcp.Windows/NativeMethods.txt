@@ -1,0 +1,25 @@
+// Window enumeration & properties
+EnumWindows
+GetWindowTextLength
+GetWindowText
+GetClassName
+IsWindowVisible
+IsWindowEnabled
+IsIconic
+IsZoomed
+GetWindow
+GetForegroundWindow
+GetWindowThreadProcessId
+GetWindowRect
+GetDpiForWindow
+DwmGetWindowAttribute
+DWMWINDOWATTRIBUTE
+
+// Process information
+OpenProcess
+QueryFullProcessImageName
+IsWow64Process2
+OpenProcessToken
+GetTokenInformation
+TOKEN_ELEVATION
+IMAGE_FILE_MACHINE
