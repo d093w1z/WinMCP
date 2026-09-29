@@ -2,7 +2,7 @@
 
 An MCP server that gives AI agents semantic access to native Windows applications — HWND hierarchy, UI Automation tree and Win32 metadata — rather than screenshots and mouse coordinates.
 
-> **Status:** proof of concept, under active design. See [docs/design/mvp-plan.md](docs/design/mvp-plan.md). Tools so far (all read-only): `list_windows`, `inspect_window`, `get_ui_tree`, `find_elements`.
+> **Status:** proof of concept, under active design. See [docs/design/mvp-plan.md](docs/design/mvp-plan.md). Tools so far (all read-only): `list_windows`, `inspect_window`, `get_ui_tree`, `find_elements`, `inspect_element`.
 
 ## Requirements
 
@@ -17,17 +17,23 @@ dotnet test --solution WinMcp.slnx                                   # everythin
 dotnet test --solution WinMcp.slnx --filter-not-trait "Category=Windows" --ignore-exit-code 8   # no GUI
 ```
 
-GUI tests (`Category=Windows`) launch `samples/WinMcp.TestApp` and need an unlocked, interactive desktop. Don't use the mouse or keyboard while they run.
+GUI tests (`Category=Windows`) launch `samples/WinMcp.TestApp` (and `charmap.exe`) and need an unlocked, interactive desktop. Don't use the mouse or keyboard while they run; a full run takes about 30 s.
+
+- Launched apps are placed in a Windows job and close automatically when the test process ends, even if a run is interrupted or crashes.
+- A run exceeding 5 minutes aborts itself with a message (`WINMCP_TEST_TIMEOUT_MINUTES` to change).
+- To see where a run is stuck, capture a hang dump (GUI test projects only; other projects reject the option):
+  `dotnet test --project tests\WinMcp.Windows.IntegrationTests --hangdump --hangdump-timeout 2m`
 
 ## Running the server
 
 ```text
-WinMcp.Server [--mode observe|control] [--allow <process-name-or-exe-path>]...
+WinMcp.Server [--mode observe|control] [--allow <process-name-or-exe-path>]... [--symbols <process-name>=<path-to-resource.h>]...
 ```
 
 - `--mode observe` (default) exposes read-only tools only; `control` (from M6) adds interaction tools and requires `--allow`.
 - `--allow` is repeatable. Only windows of allowlisted processes are ever visible to the agent; with no `--allow`, nothing is.
 - UAC/logon/credential UI and WinMCP itself can never be targeted.
+- `--symbols` maps a Win32/MFC application's control IDs to its `resource.h` names (`1000` → `IDC_EDIT_NAME`) in trees and `inspect_element`, and lets agents find controls by `control_symbol`. The file is re-read when it changes.
 
 ### Claude Code
 

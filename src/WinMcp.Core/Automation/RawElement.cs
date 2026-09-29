@@ -32,6 +32,25 @@ public sealed record RawElement(
     public IEnumerable<RawElement> DescendantsAndSelf() => Children.SelectMany(c => c.DescendantsAndSelf()).Prepend(this);
 }
 
+/// <summary>Per-element facts too costly to fetch for every node of a tree; read live for one element.</summary>
+/// <param name="Patterns">Supported UIA control patterns by short name, e.g. <c>Value</c>, <c>Invoke</c>.</param>
+/// <param name="ControlId">Win32 control ID (<c>GetDlgCtrlID</c>) when the element is itself a child window.</param>
+/// <param name="Options">Items of a combo box read without opening it (possibly capped); null when not a combo or not readable.</param>
+/// <param name="OptionCount">Total number of items, which may exceed <see cref="Options"/>' length.</param>
+public sealed record ElementExtras(
+    string FrameworkId,
+    bool IsKeyboardFocusable,
+    string HelpText,
+    string? LabeledByRuntimeId,
+    IReadOnlyList<string> Patterns,
+    int? ControlId,
+    IReadOnlyList<string>? Options,
+    int? OptionCount = null)
+{
+    /// <summary>Implementations return at most this many <see cref="Options"/>.</summary>
+    public const int MaxOptions = 200;
+}
+
 public interface IUiAutomation
 {
     /// <summary>
@@ -39,4 +58,7 @@ public interface IUiAutomation
     /// TARGET_NOT_RESPONDING or WINDOW_CLOSED when the target can't answer.
     /// </summary>
     Task<RawElement> GetWindowTreeAsync(WindowHandle window, CancellationToken cancellationToken);
+
+    /// <summary>Live details of one element. Throws ELEMENT_STALE when it no longer exists.</summary>
+    Task<ElementExtras> GetElementExtrasAsync(ElementKey element, CancellationToken cancellationToken);
 }

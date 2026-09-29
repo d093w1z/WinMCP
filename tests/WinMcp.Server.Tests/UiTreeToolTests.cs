@@ -93,6 +93,41 @@ public sealed class UiTreeToolTests
     }
 
     [Fact]
+    public async Task Inspect_element_by_locator_returns_details_and_a_suggested_locator()
+    {
+        await using var server = await Start();
+
+        var result = await server.CallAsync("inspect_element", new() { ["hwnd"] = "hwnd:0x00000010", ["automation_id"] = "applyButton" });
+
+        Assert.NotEqual(true, result.IsError);
+        var detail = Assert.IsType<JsonElement>(result.StructuredContent);
+        Assert.Equal("Apply", detail.GetProperty("name").GetString());
+        Assert.Equal("Invoke", detail.GetProperty("patterns")[0].GetString());
+        Assert.Equal("applyButton", detail.GetProperty("locator").GetProperty("automation_id").GetString());
+        Assert.True(detail.GetProperty("locator").GetProperty("unique").GetBoolean());
+        Assert.StartsWith("hwnd:0x", detail.GetProperty("host_hwnd").GetString());
+    }
+
+    [Fact]
+    public async Task Ambiguous_criteria_return_candidates_the_agent_can_pick_from()
+    {
+        await using var server = await Start();
+
+        var result = await server.CallAsync("inspect_element", new() { ["hwnd"] = "hwnd:0x00000010", ["control_type"] = "Button" });
+
+        Assert.True(result.IsError);
+        var error = Assert.IsType<JsonElement>(result.StructuredContent).GetProperty("error");
+        Assert.Equal("AMBIGUOUS_MATCH", error.GetProperty("code").GetString());
+        var candidates = error.GetProperty("details").GetProperty("candidates");
+        Assert.Equal(3, candidates.GetArrayLength());
+        Assert.Equal("Apply", candidates[0].GetProperty("name").GetString());
+
+        // Picking a candidate by ref works.
+        var picked = await server.CallAsync("inspect_element", new() { ["element"] = candidates[0].GetProperty("ref").GetString() });
+        Assert.NotEqual(true, picked.IsError);
+    }
+
+    [Fact]
     public async Task Hung_target_is_reported_as_retryable_environment_error()
     {
         var (_, automation) = Fakes();

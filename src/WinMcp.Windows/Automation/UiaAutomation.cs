@@ -21,6 +21,66 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
     public Task<RawElement> GetWindowTreeAsync(WindowHandle window, CancellationToken cancellationToken) =>
         dispatcher.RunAsync(automation => Translate(window, () => FetchTree(automation, window)), cancellationToken);
 
+    public Task<ElementExtras> GetElementExtrasAsync(ElementKey element, CancellationToken cancellationToken) =>
+        dispatcher.RunAsync(automation => Translate(element.Window, () =>
+        {
+            var live = FindLive(automation, element);
+            var hwnd = live.Properties.NativeWindowHandle.ValueOrDefault;
+            var className = live.Properties.ClassName.ValueOrDefault ?? "";
+            var labeledBy = live.Properties.LabeledBy.ValueOrDefault;
+            var options = Win32Controls.ComboOptions(hwnd, className);
+            return new ElementExtras(
+                FrameworkId: live.Properties.FrameworkId.ValueOrDefault ?? "",
+                IsKeyboardFocusable: live.Properties.IsKeyboardFocusable.ValueOrDefault,
+                HelpText: live.Properties.HelpText.ValueOrDefault ?? "",
+                LabeledByRuntimeId: labeledBy is null ? null : string.Join('.', labeledBy.Properties.RuntimeId.ValueOrDefault ?? []),
+                Patterns: live.GetSupportedPatterns().Select(p => p.Name.Replace("Pattern", "", StringComparison.Ordinal)).Order(StringComparer.Ordinal).ToList(),
+                ControlId: Win32Controls.ControlId(hwnd, (nint)element.Window.Value),
+                Options: options?.Options,
+                OptionCount: options?.Count);
+        }), cancellationToken);
+
+    /// <summary>
+    /// Finds the live element with the given runtime id in one cached round trip (runtime ids only), then returns
+    /// it for live property reads. Runtime ids are stable only while the element exists, so no match = stale.
+    /// </summary>
+    private static AutomationElement FindLive(UIA3Automation automation, ElementKey element)
+    {
+        var request = new CacheRequest
+        {
+            TreeScope = TreeScope.Subtree,
+            TreeFilter = new NotCondition(new PropertyCondition(automation.PropertyLibrary.Element.IsControlElement, false)),
+            // Full: the found element must support live calls afterwards; cache-only references reject them (M5).
+            AutomationElementMode = AutomationElementMode.Full,
+        };
+        request.Add(automation.PropertyLibrary.Element.RuntimeId);
+
+        // Get the window element before activating the cache request: with a subtree request active, FlaUI turns
+        // FromHandle into ElementFromHandleBuildCache, which UIA rejects for subtree scope (COMException, found in M5).
+        var windowElement = automation.FromHandle((nint)element.Window.Value);
+        using (request.Activate())
+        {
+            var root = windowElement.FindFirst(TreeScope.Element, TrueCondition.Default)
+                ?? throw WindowClosed(element.Window);
+            return Find(root) ?? throw new WinMcpException(new WinMcpError(
+                WinMcpErrorCode.ElementStale,
+                "The element no longer exists.",
+                Hint: "The UI changed. Call get_ui_tree or find_elements again for current refs."));
+        }
+
+        AutomationElement? Find(AutomationElement node)
+        {
+            if (string.Join('.', node.Properties.RuntimeId.ValueOrDefault ?? []) == element.RuntimeId)
+                return node;
+            foreach (var child in node.CachedChildren)
+            {
+                if (Find(child) is { } found)
+                    return found;
+            }
+            return null;
+        }
+    }
+
     /// <summary>
     /// One cross-process round trip for the whole control-view subtree plus every property the tree shows
     /// (M0: naive per-property walks cost one round trip per property per element).

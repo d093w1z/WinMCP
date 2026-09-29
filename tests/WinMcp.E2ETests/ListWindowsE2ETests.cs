@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
 using ModelContextProtocol.Protocol;
 
@@ -11,7 +11,7 @@ public sealed class ListWindowsE2ETests
     public async Task Discovers_the_running_TestApp_through_MCP()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        using var testApp = Process.Start(E2E.TestAppPath, "--position 200,200");
+        using var testApp = E2E.StartTestApp();
         try
         {
             var (client, _) = await E2E.StartServerAsync("--allow", "WinMcp.TestApp");

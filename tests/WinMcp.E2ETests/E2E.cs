@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Reflection;
 using ModelContextProtocol.Client;
 
@@ -10,6 +11,14 @@ internal static class E2E
     public static string ServerPath => Resolve("WINMCP_SERVER_PATH", "ServerPath");
 
     public static string TestAppPath => Resolve("WINMCP_TESTAPP_PATH", "TestAppPath");
+
+    /// <summary>Starts the TestApp inside the test job, so it can't outlive an interrupted run.</summary>
+    public static Process StartTestApp()
+    {
+        var process = Process.Start(TestAppPath, "--position 200,200");
+        WinMcp.Testing.ChildProcessJob.Add(process.Id);
+        return process;
+    }
 
     public static async Task<(McpClient Client, ConcurrentQueue<string> Stderr)> StartServerAsync(params string[] args)
     {

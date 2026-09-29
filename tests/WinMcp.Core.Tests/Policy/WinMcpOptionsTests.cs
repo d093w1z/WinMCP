@@ -22,6 +22,29 @@ public sealed class WinMcpOptionsTests
         Assert.Equal(["WinMcp.TestApp", @"C:\Apps\Other.exe"], options.Allow);
     }
 
+    [Fact]
+    public void Parses_symbols_per_process_normalizing_the_name()
+    {
+        var header = Path.GetTempFileName();
+        try
+        {
+            var options = WinMcpOptions.Parse(["--symbols", $"MfcTestApp.exe=\"{header}\""]);
+
+            Assert.Equal(Path.GetFullPath(header), options.Symbols["mfctestapp"]);
+        }
+        finally
+        {
+            File.Delete(header);
+        }
+    }
+
+    [Theory]
+    [InlineData("--symbols", "MfcTestApp")]                      // no '='
+    [InlineData("--symbols", "=C:\\resource.h")]                 // no process
+    [InlineData("--symbols", "MfcTestApp=C:\\nope\\resource.h")] // missing file
+    public void Rejects_invalid_symbols(params string[] args) =>
+        Assert.Throws<ArgumentException>(() => WinMcpOptions.Parse(args));
+
     [Theory]
     [InlineData("--mode", "control")]                  // control needs an allowlist
     [InlineData("--mode", "admin")]

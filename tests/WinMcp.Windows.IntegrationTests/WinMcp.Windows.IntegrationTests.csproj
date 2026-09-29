@@ -4,9 +4,9 @@
   <PropertyGroup>
     <TargetFramework>$(WinMcpWindowsTfm)</TargetFramework>
     <OutputType>Exe</OutputType>
-    <!-- LibraryImport (PostMessage in HungTargetTests) generates unsafe marshalling code. -->
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <Import Project="..\Shared\Windows\GuiTests.props" />
 
   <ItemGroup>
     <PackageReference Include="xunit.v3" />

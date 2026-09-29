@@ -6,6 +6,8 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
+  <Import Project="..\Shared\Windows\GuiTests.props" />
+
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="ModelContextProtocol" />

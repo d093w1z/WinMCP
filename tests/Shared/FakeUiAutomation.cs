@@ -9,9 +9,17 @@ internal sealed class FakeUiAutomation : IUiAutomation
 {
     public Dictionary<WindowHandle, RawElement> Trees { get; } = [];
 
+    /// <summary>Extras per runtime id; elements without an entry get <see cref="DefaultExtras"/>.</summary>
+    public Dictionary<string, ElementExtras> Extras { get; } = [];
+
+    public static readonly ElementExtras DefaultExtras = new("WinForm", true, "", null, ["Invoke"], null, null);
+
     public Exception? ThrowOnFetch { get; set; }
 
     public int FetchCount { get; private set; }
+
+    public Task<ElementExtras> GetElementExtrasAsync(ElementKey element, CancellationToken cancellationToken) =>
+        Task.FromResult(Extras.TryGetValue(element.RuntimeId, out var extras) ? extras : DefaultExtras);
 
     public Task<RawElement> GetWindowTreeAsync(WindowHandle window, CancellationToken cancellationToken)
     {

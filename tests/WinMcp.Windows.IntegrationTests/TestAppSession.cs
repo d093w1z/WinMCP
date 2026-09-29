@@ -27,6 +27,7 @@ public class TestAppSession : IDisposable
             throw new FileNotFoundException("TestApp executable not found. Build samples/WinMcp.TestApp first or set WINMCP_TESTAPP_PATH.", path);
 
         _app = FlaApplication.Launch(path, $"--position 200,200 {extraArguments}".Trim());
+        WinMcp.Testing.ChildProcessJob.Add(_app.ProcessId);
         Window = _app.GetMainWindow(Automation, TimeSpan.FromSeconds(15))
             ?? throw new InvalidOperationException("TestApp main window did not appear.");
     }

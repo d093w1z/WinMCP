@@ -21,6 +21,13 @@ GetDpiForWindow
 DwmGetWindowAttribute
 DWMWINDOWATTRIBUTE
 
+// Controls
+GetDlgCtrlID
+SendMessageTimeout
+CB_GETCOUNT
+CB_GETLBTEXT
+CB_GETLBTEXTLEN
+
 // Process information
 OpenProcess
 QueryFullProcessImageName

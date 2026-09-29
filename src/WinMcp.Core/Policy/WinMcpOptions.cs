@@ -10,16 +10,23 @@ public enum ServerMode
 }
 
 /// <param name="Allow">Process names (<c>WinMcp.TestApp</c>, <c>.exe</c> optional) or full executable paths.</param>
-public sealed record WinMcpOptions(ServerMode Mode, IReadOnlyList<string> Allow)
+/// <param name="Symbols">Process name (no <c>.exe</c>) → path of that application's <c>resource.h</c>.</param>
+public sealed record WinMcpOptions(ServerMode Mode, IReadOnlyList<string> Allow, IReadOnlyDictionary<string, string> Symbols)
 {
     public const string Usage =
-        "Usage: WinMcp.Server [--mode observe|control] [--allow <process-name-or-exe-path>]...";
+        "Usage: WinMcp.Server [--mode observe|control] [--allow <process-name-or-exe-path>]... [--symbols <process-name>=<path-to-resource.h>]...";
+
+    public WinMcpOptions(ServerMode mode, IReadOnlyList<string> allow)
+        : this(mode, allow, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase))
+    {
+    }
 
     /// <exception cref="ArgumentException">Invalid or inconsistent arguments; the message is user-facing.</exception>
     public static WinMcpOptions Parse(IReadOnlyList<string> args)
     {
         var mode = ServerMode.Observe;
         var allow = new List<string>();
+        var symbols = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         for (var i = 0; i < args.Count; i++)
         {
@@ -38,6 +45,19 @@ public sealed record WinMcpOptions(ServerMode Mode, IReadOnlyList<string> Allow)
                 case "--allow":
                     allow.Add(Value(args, ref i));
                     break;
+                case "--symbols":
+                    var entry = Value(args, ref i);
+                    var separator = entry.IndexOf('=');
+                    if (separator <= 0 || separator == entry.Length - 1)
+                        throw new ArgumentException($"Invalid --symbols '{entry}'. Expected <process-name>=<path-to-resource.h>.");
+                    var process = entry[..separator].Trim();
+                    if (process.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        process = process[..^4];
+                    var path = entry[(separator + 1)..].Trim().Trim('"');
+                    if (!File.Exists(path))
+                        throw new ArgumentException($"--symbols file not found: '{path}'.");
+                    symbols[process] = Path.GetFullPath(path);
+                    break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");
             }
@@ -46,7 +66,7 @@ public sealed record WinMcpOptions(ServerMode Mode, IReadOnlyList<string> Allow)
         if (mode == ServerMode.Control && allow.Count == 0)
             throw new ArgumentException("--mode control requires at least one --allow entry.");
 
-        return new WinMcpOptions(mode, allow);
+        return new WinMcpOptions(mode, allow, symbols);
     }
 
     private static string Value(IReadOnlyList<string> args, ref int i)

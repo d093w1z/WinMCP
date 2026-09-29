@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -12,7 +12,7 @@ public sealed class UiTreeE2ETests
     public async Task Agent_style_read_flow_finds_the_status_through_MCP()
     {
         var token = TestContext.Current.CancellationToken;
-        using var testApp = Process.Start(E2E.TestAppPath, "--position 200,200");
+        using var testApp = E2E.StartTestApp();
         try
         {
             var (client, _) = await E2E.StartServerAsync("--allow", "WinMcp.TestApp");

@@ -29,6 +29,8 @@ public static class OutlineRenderer
             .Append(" \"").Append(Escape(node.Name, MaxNameLength)).Append('"');
         if (node.AutomationId is { } id)
             builder.Append(" #").Append(id);
+        if (node.ControlSymbol is { } symbol)
+            builder.Append(" (").Append(symbol).Append(')');
         if (node.Value is { } value)
             builder.Append(" value=\"").Append(Escape(value, int.MaxValue)).Append('"');
         if (node.States is { } states)

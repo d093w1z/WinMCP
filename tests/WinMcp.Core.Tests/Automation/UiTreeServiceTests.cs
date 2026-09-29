@@ -2,6 +2,7 @@ using WinMcp.Core.Automation;
 using WinMcp.Core.Desktop;
 using WinMcp.Core.Errors;
 using WinMcp.Core.Policy;
+using WinMcp.Core.Symbols;
 using WinMcp.Testing;
 using static WinMcp.Testing.FakeUiAutomation;
 
@@ -21,8 +22,8 @@ public sealed class UiTreeServiceTests
     {
         _automation.Trees[Main.Hwnd] = TestAppTree();
         _automation.Trees[Mail.Hwnd] = Element("9", "Window", "Inbox");
-        var policy = new TargetPolicy(new WinMcpOptions(ServerMode.Observe, ["WinMcp.TestApp"]), ownPid: 999);
-        _service = new UiTreeService(new WindowQuery(_desktop, policy), _automation, new ElementRegistry());
+        var options = new WinMcpOptions(ServerMode.Observe, ["WinMcp.TestApp"]);
+        _service = new UiTreeService(new WindowQuery(_desktop, new TargetPolicy(options, ownPid: 999)), _automation, new ElementRegistry(), new SymbolProvider(options));
     }
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;

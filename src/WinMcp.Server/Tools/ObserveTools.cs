@@ -64,7 +64,24 @@ public sealed class ObserveTools(WindowQuery windows, UiTreeService tree)
         [Description("Substring of the element name.")] string? name_contains = null,
         [Description("UI Automation control type, e.g. Button, Edit, ComboBox, CheckBox, Text, List, ListItem, MenuItem.")] string? control_type = null,
         [Description("Exact window class name, e.g. 'Button' or 'SysListView32'.")] string? class_name = null,
+        [Description("resource.h name of a Win32/MFC control, e.g. 'IDC_EDIT_NAME'. Only when WinMCP was started with --symbols for the application.")] string? control_symbol = null,
         [Description("Maximum matches returned. Default 25.")] int max_results = UiTreeService.DefaultMaxResults,
         CancellationToken cancellationToken = default) =>
-        tree.FindAsync(hwnd, element, new ElementLocator(automation_id, name, name_contains, control_type, class_name), max_results, cancellationToken);
+        tree.FindAsync(hwnd, element, new ElementLocator(automation_id, name, name_contains, control_type, class_name, control_symbol), max_results, cancellationToken);
+
+    [McpServerTool(Name = "inspect_element", Title = "Inspect element", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description(
+        "Full details of one element: value and states, supported UI Automation patterns (what it can do), "
+        + "Win32 hwnd and control ID (with its resource.h name when configured), combo box options (read without opening it), "
+        + "bounds, parent and label refs, and a suggested durable 'locator' for finding it again in a later session. "
+        + "Identify the element by 'element' (a ref), or by 'hwnd' plus criteria that match exactly one element.")]
+    public Task<ElementDetail> InspectElement(
+        [Description("Ref from get_ui_tree/find_elements, e.g. 'e7'. With criteria, searches within this element.")] string? element = null,
+        [Description("Window handle from list_windows; use with criteria.")] string? hwnd = null,
+        [Description("Exact AutomationId.")] string? automation_id = null,
+        [Description("Exact element name.")] string? name = null,
+        [Description("UI Automation control type, e.g. Button, Edit, ComboBox.")] string? control_type = null,
+        [Description("resource.h name of a Win32/MFC control, e.g. 'IDC_EDIT_NAME' (requires --symbols).")] string? control_symbol = null,
+        CancellationToken cancellationToken = default) =>
+        tree.InspectAsync(hwnd, element, new ElementLocator(automation_id, name, null, control_type, null, control_symbol), cancellationToken);
 }
