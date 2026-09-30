@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
 Builds samples\WinMcp.MfcTestApp (C++/MFC). Needs Visual Studio with "Desktop development with C++" and the MFC
-component (v143 toolset). Not part of `dotnet build`; integration tests skip the MFC cases when it isn't built.
+component for the default toolset. Not part of `dotnet build`; integration tests skip the MFC cases when it isn't built.
 #>
 param([string]$Configuration = 'Release')
 

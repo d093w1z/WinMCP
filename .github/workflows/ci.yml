@@ -53,6 +53,8 @@ jobs:
           foreach ($project in 'WinMcp.Windows.IntegrationTests', 'WinMcp.E2ETests') {
             $output = dotnet test --project "tests/$project" -c Release --no-build 2>&1 | Out-String
             if ($LASTEXITCODE -ne 0) { $failed = $true }
+            Write-Host "===== $project (exit $LASTEXITCODE) ====="
+            Write-Host $output
             $lines = $output -split "`n" | Where-Object { $_ -match 'failed |passed \(|Exception|Assert\.|Expected|Actual|total:|succeeded:|failed:' } | Select-Object -First 80
             "### $project (exit $LASTEXITCODE)`n``````text`n$($lines -join "`n")`n``````" | Add-Content $env:GITHUB_STEP_SUMMARY
           }

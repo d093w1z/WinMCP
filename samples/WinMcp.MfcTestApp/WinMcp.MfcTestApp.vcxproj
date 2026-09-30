@@ -21,7 +21,8 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v143</PlatformToolset>
+    <!-- Whatever the installed VS defaults to (v143 = VS 2022, v145 = VS 2026): its MFC libraries must be installed. -->
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <!-- Shared MFC DLL on purpose: M11 inspects MFC runtime classes, which needs the shared MFC module. -->
     <UseOfMfc>Dynamic</UseOfMfc>
