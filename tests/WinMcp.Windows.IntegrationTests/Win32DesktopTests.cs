@@ -38,16 +38,21 @@ public sealed class Win32DesktopTests : IClassFixture<TestAppSession>
     }
 
     [Fact]
-    public void Bounds_are_the_visible_frame_at_the_requested_position()
+    public async Task Bounds_are_the_visible_frame_at_the_requested_position()
     {
         var window = Assert.Single(_desktop.GetTopLevelWindows(), w => w.Process.Pid == _app.ProcessId && w.Shown);
-        var uia = _app.Window.Properties.BoundingRectangle.Value;
+        // WinMCP's own UIA reading, not the test harness's: the harness runs DPI-unaware and gets scaled coordinates
+        // above 100% scaling, while WinMCP reads everything in physical pixels (M8).
+        using var services = new WinMcpServices();
+        var uia = (await services.Automation.GetWindowTreeAsync(window.Hwnd, TestContext.Current.CancellationToken)).Bounds;
 
         Assert.Equal(200, window.Bounds.Y); // --position 200,200; the visible frame starts at the requested top
         Assert.True(window.Bounds.Width > 0 && window.Bounds.Height > 0);
         // DWM visible frame sits inside the UIA rectangle, which includes invisible resize borders (M0 finding 12).
-        Assert.True(window.Bounds.X >= uia.X && window.Bounds.Width <= uia.Width);
+        Assert.True(window.Bounds.X >= uia.X && window.Bounds.Width <= uia.Width, $"DWM {window.Bounds} vs UIA {uia}");
+        Assert.True(uia.Width - window.Bounds.Width <= 40 * window.Dpi / 96, $"DWM {window.Bounds} vs UIA {uia}: more than resize borders apart");
         Assert.True(window.Dpi >= 96);
+        TestContext.Current.TestOutputHelper?.WriteLine($"dpi {window.Dpi}: DWM {window.Bounds}, UIA {uia}");
     }
 
     [Fact]

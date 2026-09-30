@@ -18,6 +18,7 @@ public sealed unsafe class Win32Desktop : IDesktop
 {
     public IReadOnlyList<WindowInfo> GetTopLevelWindows()
     {
+        using var dpi = DpiScope.Enter();
         var handles = new List<HWND>();
         PInvoke.EnumWindows((hwnd, _) =>
         {
@@ -38,6 +39,7 @@ public sealed unsafe class Win32Desktop : IDesktop
 
     public WindowDetails? GetWindowDetails(WindowHandle handle)
     {
+        using var dpi = DpiScope.Enter();
         var hwnd = (HWND)(nint)handle.Value;
         if (!PInvoke.IsWindow(hwnd) || ReadWindow(hwnd, PInvoke.GetForegroundWindow(), [], out var threadId) is not { } window)
             return null;

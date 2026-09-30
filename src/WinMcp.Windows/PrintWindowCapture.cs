@@ -72,6 +72,7 @@ public sealed class PrintWindowCapture : IScreenCapture
     /// <returns>The whole window rendered at its physical size, and its window rectangle in screen coordinates.</returns>
     private static (Bitmap Bitmap, Rect WindowRect) Render(HWND hwnd)
     {
+        using var dpi = DpiScope.Enter(); // physical pixels, matching DWM frame bounds and the rendered size
         if (!PInvoke.GetWindowRect(hwnd, out var rect) || rect.right <= rect.left || rect.bottom <= rect.top)
             throw new WinMcpException(new WinMcpError(WinMcpErrorCode.WindowClosed, "The window has no area to capture."));
 

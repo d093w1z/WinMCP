@@ -663,6 +663,18 @@ Open items: **mixed/high-DPI behaviour is untested** (the machine is at 100%); r
 - **Errors:** minimized → `WINDOW_MINIMIZED` (no rendered content); offscreen/zero-size element → `ELEMENT_OFFSCREEN` (new, environment category).
 - **DPI above 100% is still unverified.** This session reports 96 DPI on a single 1920×1080 `DISPLAY9` (typical of Remote Desktop) while the user's physical display is at 175%. The server is Per-Monitor-V2 aware and all geometry is physical pixels, so behaviour should hold, but it must be tested with scaling > 100% *inside* the session before calling DPI done (tracked for M8).
 
+## M8 implementation notes (2026-09-30)
+
+- **`send_keys`**: `text` (typed as Unicode characters; newline/tab become Enter/Tab key presses) or `keys` (comma-separated chords, modifiers Ctrl/Shift/Alt, named keys, scan codes and extended-key flags set). Optional element to focus first (`uia.SetFocus`).
+  - **Never types into another window**: before every chunk (32 characters or one chord) the foreground window's root must be the target; otherwise `FOCUS_FAILED` with `parts_sent`. Owned dialogs count as "another window" — conservative by design.
+  - **Foreground acquisition**: Windows only lets the process that received the last input change the foreground. A zero-distance `SendInput` mouse move qualifies WinMCP without side effects (the common Alt-tap trick would activate the menu bar of whichever app has focus). Worked 3/3 with charmap in the foreground; the charmap edit stayed untouched.
+  - Refused by policy: Windows-key chords, `Alt+Tab`, `Alt+Esc`, `Ctrl+Esc`, `Ctrl+Shift+Esc`, `Ctrl+Alt+Del`; password targets and a focused password field (checked after focusing).
+- **E2E speed**: the MCP SDK client waits `ShutdownTimeout` (default 5 s) for the server to exit *before* closing its stdin, while the server exits ~30 ms after stdin closes. Setting 500 ms in the test helper took the E2E suite from 13 s to 4 s. Real clients close stdin themselves.
+- **Manual testing without locking builds**: `scripts\publish-mcp.ps1` also publishes the TestApp to `artifacts\testapp` (same junction scheme). A TestApp launched from `bin\Release` blocks every build of it — hit during M8.
+- **Docs**: `docs/tools.md` (reference with examples), `docs/limitations.md` (measured limits), `docs/security.md` (model and guarantees).
+- **Remote**: `origin` = `git@github.com:d093w1z/WinMCP.git` (push pending SSH key setup on this machine).
+- Still open for MVP sign-off: DPI > 100% check; agent eval (≥ 4/5 Claude Code sessions, criterion 4).
+
 ---
 
 ## Sources (checked 2026-09-30)

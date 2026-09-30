@@ -102,6 +102,8 @@ public sealed class AutomationDispatcher : IDisposable
 
         private void Run(TimeSpan uiaTimeout)
         {
+            // UIA reports coordinates in the client thread's DPI context; bounds must be physical pixels like DWM's.
+            DpiScope.SetForCurrentThread();
             using var automation = new UIA3Automation
             {
                 ConnectionTimeout = uiaTimeout,
