@@ -62,6 +62,43 @@ public sealed unsafe class Win32Desktop : IDesktop
             childClasses);
     }
 
+    public bool AnswersMessages(WindowHandle window) => Win32Controls.Ping((nint)window.Value);
+
+    public IReadOnlyList<ChildWindow> GetChildWindows(WindowHandle window)
+    {
+        using var dpi = DpiScope.Enter();
+        var top = (HWND)(nint)window.Value;
+        var handles = new List<HWND>();
+        PInvoke.EnumChildWindows(top, (child, _) =>
+        {
+            handles.Add(child);
+            return true;
+        }, default);
+
+        var children = new List<ChildWindow>(handles.Count);
+        foreach (var hwnd in handles)
+        {
+            if (!PInvoke.IsWindowVisible(hwnd))
+                continue;
+            var className = ReadClassName(hwnd);
+            var style = (uint)PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE);
+            PInvoke.GetWindowRect(hwnd, out var rect);
+            var parent = PInvoke.GetAncestor(hwnd, GET_ANCESTOR_FLAGS.GA_PARENT);
+            children.Add(new ChildWindow(
+                ToHandle(hwnd),
+                ToHandle(parent),
+                className,
+                Win32Controls.IsPasswordEdit(hwnd, className) ? "" : Win32Controls.ReadText((nint)hwnd.Value),
+                PInvoke.GetDlgCtrlID(hwnd),
+                style,
+                Visible: true,
+                PInvoke.IsWindowEnabled(hwnd),
+                new Rect(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top),
+                Win32Controls.ReadCheck((nint)hwnd.Value, className, style)));
+        }
+        return children;
+    }
+
     /// <returns>Null when the window was destroyed while being read.</returns>
     private static WindowInfo? ReadWindow(HWND hwnd, HWND foreground, Dictionary<uint, ProcessInfo> processes, out uint threadId)
     {

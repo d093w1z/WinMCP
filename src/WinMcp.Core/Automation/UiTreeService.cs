@@ -18,7 +18,8 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
     private const int MaxAmbiguousCandidates = 10;
 
     /// <summary>The window being worked on, its normalized tree, and the subtree root the caller asked for.</summary>
-    private sealed record Scope(WindowDetails Window, RawElement Tree, RawElement Root, SymbolTable? Symbols)
+    /// <param name="Source">Null for UI Automation; <see cref="Win32Source"/> when built from child windows.</param>
+    private sealed record Scope(WindowDetails Window, RawElement Tree, RawElement Root, SymbolTable? Symbols, string? Source)
     {
         public WindowHandle Handle => Window.Window.Hwnd;
     }
@@ -64,7 +65,7 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
         }
 
         var tree = Build(scope.Root, 0);
-        return new UiTree(scope.Handle, tree, count, truncationReason is not null, truncationReason);
+        return new UiTree(scope.Handle, tree, count, truncationReason is not null, truncationReason, scope.Source);
     }
 
     public async Task<ElementMatches> FindAsync(string? hwnd, string? element, ElementLocator locator, int maxResults, CancellationToken cancellationToken)
@@ -82,7 +83,7 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
             var (value, states) = Describe(e);
             return new ElementMatch(Ref(scope, e), e.ControlType, e.Name, NullIfEmpty(e.AutomationId), value, states);
         }).ToList();
-        return new ElementMatches(matches, all.Count, all.Count > matches.Count);
+        return new ElementMatches(matches, all.Count, all.Count > matches.Count, scope.Source);
     }
 
     public async Task<ElementDetail> InspectAsync(string? hwnd, string? element, ElementLocator locator, CancellationToken cancellationToken)
@@ -141,7 +142,7 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
     /// <summary>The element with keyboard focus in the window, if any (fetched fresh).</summary>
     public async Task<RawElement?> FocusedElementAsync(WindowHandle window, CancellationToken cancellationToken)
     {
-        var tree = await FetchAsync(window, cancellationToken);
+        var (tree, _) = await FetchAsync(window, cancellationToken);
         return tree.DescendantsAndSelf().LastOrDefault(e => e.HasKeyboardFocus);
     }
 
@@ -284,43 +285,55 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
         if (key is { } k && k.Window != handle)
             throw Invalid($"Element '{element}' belongs to window {k.Window}, not {handle}.");
 
-        var tree = TreeNormalizer.Normalize(await FetchAsync(handle, cancellationToken));
+        var (fetched, source) = await FetchAsync(handle, cancellationToken);
+        var tree = TreeNormalizer.Normalize(fetched);
         var table = symbols.ForProcess(window.Window.Process.Name);
         if (key is null)
-            return new Scope(window, tree, tree, table);
+            return new Scope(window, tree, tree, table, source);
 
         var root = tree.DescendantsAndSelf().FirstOrDefault(e => e.RuntimeId == key.Value.RuntimeId)
             ?? throw new WinMcpException(new WinMcpError(
                 WinMcpErrorCode.ElementStale,
                 $"Element '{element}' no longer exists in window {handle}.",
                 Hint: "The UI changed. Call get_ui_tree or find_elements again for current refs."));
-        return new Scope(window, tree, root, table);
+        return new Scope(window, tree, root, table, source);
     }
 
+    public const string Win32Source = "win32";
+
     /// <summary>
-    /// A timeout from a window Windows still considers responsive almost always means the tree is too large to fetch
-    /// in time (~2.5 ms per element for WinForms, measured in M4), not a hang — say so rather than mislead.
+    /// UIA timing out on a window Windows still considers responsive means UIA itself can't answer: the tree is too
+    /// large to fetch in time (M4), or UIA is blocked for the application (M9: a modal dialog opened from inside a UIA
+    /// call). Either way the Win32 controls still answer messages, so fall back to a tree of child windows (plan §A.5).
     /// </summary>
-    private async Task<RawElement> FetchAsync(WindowHandle window, CancellationToken cancellationToken)
+    private async Task<(RawElement Tree, string? Source)> FetchAsync(WindowHandle window, CancellationToken cancellationToken)
     {
         try
         {
-            return await automation.GetWindowTreeAsync(window, cancellationToken);
+            return (await automation.GetWindowTreeAsync(window, cancellationToken), null);
         }
         catch (WinMcpException ex) when (ex.Error.Code == WinMcpErrorCode.TargetNotResponding && IsResponding(window))
         {
+            var info = windows.ResolveTopLevel(window.ToString()).Window;
+            var children = windows.ChildWindows(window);
+            if (children.Count > 0)
+                return (Win32TreeBuilder.Build(info, children), Win32Source);
             throw new WinMcpException(ex.Error with
             {
-                Message = $"Fetching the UI tree of {window} timed out although the application is responding.",
-                Hint = "The window's UI tree is probably too large to fetch within the time limit. "
-                       + "This is a known WinMCP limitation for very large windows (e.g. lists with thousands of rows).",
+                Message = $"UI Automation for {window} timed out although the application is responding, and it has no Win32 child controls to fall back to.",
+                Hint = "The UI tree may be too large to fetch in time, or UI Automation is blocked by a modal dialog. "
+                       + "Check list_windows for a dialog of this application and act on that.",
             }, ex);
         }
     }
 
+    /// <summary>
+    /// Hung (not processing messages) vs. UIA-blocked-but-pumping (M9: a modal dialog opened inside a UIA call) need
+    /// different answers, so ask the window directly — Windows' own hung flag lags ~5 s behind a real freeze.
+    /// </summary>
     private bool IsResponding(WindowHandle window)
     {
-        try { return windows.ResolveTopLevel(window.ToString()).Responding; }
+        try { return windows.ResolveTopLevel(window.ToString()).Responding && windows.AnswersMessages(window); }
         catch (WinMcpException) { return false; } // closed meanwhile: keep the original error
     }
 

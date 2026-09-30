@@ -89,11 +89,12 @@ public sealed partial class HungTargetTests : IClassFixture<TestAppSession>, IDi
             hwnd, null, new WinMcp.Core.Automation.ElementLocator(AutomationId: "freezeButton"),
             new WinMcp.Core.Automation.ElementAction.Invoke(), token);
 
-        // The click was delivered; reporting TARGET_NOT_RESPONDING would invite a second click.
+        // The click was delivered; reporting TARGET_NOT_RESPONDING would invite a second click. Since M9 the click is
+        // posted (win32.BM_CLICK) and synced with WM_NULL for up to 1 s, so this returns quickly with a warning.
         Assert.True(result.Ok);
-        Assert.Equal("uia.InvokePattern", result.Method);
+        Assert.Equal("win32.BM_CLICK", result.Method);
         Assert.Contains("still busy", result.Warning);
-        Assert.True(timing.Elapsed < TimeSpan.FromSeconds(8), $"returned after {timing.Elapsed.TotalSeconds:F1} s");
+        Assert.True(timing.Elapsed < TimeSpan.FromSeconds(3), $"returned after {timing.Elapsed.TotalSeconds:F1} s");
 
         // Windows only flags a hang after ~5 s, so "responding" alone would pass mid-freeze; wait out the 8 s freeze too.
         TestAppSession.WaitUntil(

@@ -56,6 +56,29 @@ public sealed class TreeNormalizerTests
     }
 
     [Fact]
+    public void Folds_list_view_cells_into_the_row_value()
+    {
+        var list = Element("1", "Table", "", "itemsListView").With(
+            Element("1.1", "ListItem", "Beta").With(Element("1.1.1", "Text", "Beta"), Element("1.1.2", "Text", "HTML"), Element("1.1.3", "Text", "2 KB")),
+            Element("1.2", "ListItem", "Plain"));
+
+        var rows = TreeNormalizer.Normalize(list).Children;
+
+        Assert.Equal(("Beta", "Beta | HTML | 2 KB"), (rows[0].Name, rows[0].Value));
+        Assert.Empty(rows[0].Children);
+        Assert.Null(rows[1].Value); // no cells: nothing to fold
+    }
+
+    [Fact]
+    public void Rows_with_richer_children_are_not_folded()
+    {
+        var list = Element("1", "List", "").With(
+            Element("1.1", "ListItem", "Row").With(Element("1.1.1", "CheckBox", "Done", toggle: "on"), Element("1.1.2", "Text", "Task")));
+
+        Assert.Equal(2, Assert.Single(TreeNormalizer.Normalize(list).Children).Children.Count);
+    }
+
+    [Fact]
     public void Keeps_anonymous_panes_with_several_children()
     {
         var root = Element("1", "Window", "App").With(

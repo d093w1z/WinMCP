@@ -21,7 +21,9 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
         dispatcher.RunAsync(automation => Translate(window, () => FetchTree(automation, window)), cancellationToken);
 
     public Task<ElementExtras> GetElementExtrasAsync(ElementKey element, CancellationToken cancellationToken) =>
-        dispatcher.RunAsync(automation => Translate(element.Window, () =>
+        Win32TreeBuilder.IsFallbackId(element.RuntimeId)
+            ? Task.Run(() => Win32Actions.Extras(Win32TreeBuilder.HandleOf(element.RuntimeId)), cancellationToken)
+            : dispatcher.RunAsync(automation => Translate(element.Window, () =>
         {
             var live = FindLive(automation, element);
             var hwnd = live.Properties.NativeWindowHandle.ValueOrDefault;
@@ -39,8 +41,11 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
                 OptionCount: options?.Count);
         }), cancellationToken);
 
+    /// <summary>Elements from the Win32 fallback tree are driven by Win32 messages only — UIA is what failed for them.</summary>
     public Task<ActionOutcome> PerformAsync(ElementKey element, ElementAction action, CancellationToken cancellationToken) =>
-        dispatcher.RunAsync(automation => Translate(element.Window, () =>
+        Win32TreeBuilder.IsFallbackId(element.RuntimeId)
+            ? Task.Run(() => Win32Actions.Perform(Win32TreeBuilder.HandleOf(element.RuntimeId), action), cancellationToken)
+            : dispatcher.RunAsync(automation => Translate(element.Window, () =>
         {
             var live = FindLive(automation, element);
             // Re-checked live: the element may have been disabled since the caller's check (M0: UIA acts on it anyway).

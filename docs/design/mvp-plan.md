@@ -510,7 +510,7 @@ Flakiness controls: no `Thread.Sleep` in tests (use `wait_for`/polling with dead
 | **M6 — Interaction + `wait_for`** ✅ | `invoke`, `set_value`, `select_option`, `set_toggle` (control mode only), `wait_for` (both modes), `InteractionService` (enabled/password/mode checks, audit), `UiaActions` (patterns + Win32 fallbacks), JSONL audit log, `--audit-dir` | 290 tests green; **golden scenario passes in integration and in E2E over stdio**, audit shows only semantic methods; GUI suites 3/3 runs |
 | **M7 — Screenshots** ✅ | `capture_screenshot` (window or element + padding, `max_edge` downscaling, PNG image block + JSON metadata), `PrintWindowCapture` (PW_RENDERFULLCONTENT, hang-safe), `ELEMENT_OFFSCREEN` | 312 tests green; captures inspected visually; covered-window capture shows no pixels of the window on top |
 | **M8 — `send_keys`, E2E, hardening → MVP** ✅ | `send_keys` with per-chunk foreground verification, 3× faster E2E, docs, DPI fixes (library + TestApp), 20/20 stability at 150%, agent eval 5/5 | **All 8 MVP criteria met — MVP complete (2026-09-30)** |
-| M9 — TestApp v2 breadth | Menus, ListView, TreeView, dialog, tabs, custom-painted control; tree/actions extended (ExpandCollapse, grid/table items, menu navigation). **Budgeted tree fetch** (walk level by level, stop at max_nodes/max_depth; target-side search for refs and find_elements) so large lists don't hit the UIA timeout — see M4 notes | New integration tests; 10k-row list stays under the timeout |
+| M9 — TestApp v2 breadth (M9a ✅ broader UI; M9b budgeted fetch pending) | Menus, ListView, TreeView, dialog, tabs, custom-painted control; tree/actions extended (ExpandCollapse, grid/table items, menu navigation). **Budgeted tree fetch** (walk level by level, stop at max_nodes/max_depth; target-side search for refs and find_elements) so large lists don't hit the UIA timeout — see M4 notes | New integration tests; 10k-row list stays under the timeout |
 | M10 — MFC test app | C++/MFC dialog app equivalent to v1+v2 (CDialog, CEdit, CComboBox, CButton, CListCtrl, CTreeCtrl) + a CFrameWnd/CView doc app with menu/toolbar/status bar. **Same integration suite parameterized over both apps** (per-app locator map — MFC map uses `control_symbol` locators via the app's own `resource.h`) | Suite runs against MFC app; symbol mapping verified live; diffs documented |
 | M11 — MFC investigation | See below; `docs/mfc-investigation.md`; go/no-go on in-process inspector | Report + enrichment features that proved reliable |
 
@@ -688,6 +688,23 @@ Open items: **mixed/high-DPI behaviour is untested** (the machine is at 100%); r
 | 6 | Security defaults tested | ✅ allowlist, `WINDOW_NOT_FOUND` for others, `send_keys` never types elsewhere (charmap test) |
 | 7 | Performance: tree < 500 ms, interactions < 300 ms | ✅ TestApp tree ~100–150 ms (asserted); actions 5–15 ms in M0/M6 measurements |
 | 8 | Docs: README, tools, limitations, security | ✅ |
+
+## M9a implementation notes (2026-09-30) — broader UI
+
+Explored first (throwaway tests against TestApp v2: menu bar, list view, tree view, tabs, WinForms dialog, Win32 message box, custom-drawn canvas), then fixed what broke:
+
+| Finding | Fix |
+|---|---|
+| A button whose handler opens a modal dialog: UIA `Invoke` took 3.1 s, then **every UIA call to the application timed out** — WinForms runs the handler *inside* the UIA call, and UIA stays blocked for the whole process (even a fresh UIA connection) until the dialog closes. | Win32 push buttons are clicked with **`BM_CLICK` sent with a 750 ms timeout**: the handler runs from the app's message processing, the dialog is up (and operable) when `invoke` returns; a still-running handler yields a `warning`. (A first attempt — post `BM_CLICK`, sync with a sent `WM_NULL` — was wrong: sent messages are processed before posted ones, so the sync returned before the click.) |
+| Menu items (no HWND) opening a message box block UIA the same way. | **Win32 fallback tree** (plan §A.5): when UIA times out on a window that still answers `WM_NULL`, `get_ui_tree`/`find_elements` return its child windows (`source: win32`, outline note) and actions on those refs use Win32 messages (`BM_CLICK`, `WM_SETTEXT`, `CB_SETCURSEL+CBN_SELCHANGE`, check boxes). Verified: About message box closed via fallback, UIA recovers. |
+| A hung window (not pumping) looked "responding" for ~5 s (Windows' hung flag lags) and got the fallback. | Responsiveness is decided by a direct `WM_NULL` ping (500 ms): hung → `TARGET_NOT_RESPONDING`; pumping but UIA-blocked → fallback. |
+| Children of collapsed tree nodes aren't in the UIA tree; `invoke` on a tree node toggles it (ambiguous). | New tool **`set_expanded`** (target state); `select_option` on trees accepts paths `"Documents > Reports > Q1.txt"`; a bare name that isn't visible gets a hint. |
+| List-view rows: 4 UIA nodes per row (item + one Text per column). | Normalizer folds cells into the row value `"Beta \| HTML \| 2 KB"` (≈4× smaller list trees). |
+| WinForms menu items have no AutomationId. | Documented: find by name + `MenuItem`. |
+| Tab control named `"Events: 0 []"` by UIA's label heuristic. | TestApp sets an accessible name; the pitfall is documented. |
+| Custom-drawn control: one empty `Pane`. | As expected; still capturable with `capture_screenshot` (tested). |
+
+Tool count is now 13 (7 observe + 6 control).
 
 ---
 

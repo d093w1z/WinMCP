@@ -13,6 +13,9 @@ public static class OutlineRenderer
     public static string Render(UiTree tree)
     {
         var builder = new StringBuilder();
+        if (tree.Source == UiTreeService.Win32Source)
+            builder.AppendLine("(UI Automation is not answering for this application — e.g. a modal dialog is open. "
+                               + "Showing its Win32 controls instead; actions on these refs use Win32 messages.)");
         Append(builder, tree.Root, 0);
         builder.Append($"({tree.NodeCount} nodes");
         if (tree.Truncated)

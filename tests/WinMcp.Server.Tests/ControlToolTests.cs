@@ -6,7 +6,7 @@ namespace WinMcp.Server.Tests;
 
 public sealed class ControlToolTests : IDisposable
 {
-    private static readonly string[] ControlTools = ["invoke", "select_option", "send_keys", "set_toggle", "set_value"];
+    private static readonly string[] ControlTools = ["invoke", "select_option", "send_keys", "set_expanded", "set_toggle", "set_value"];
     private readonly string _auditDirectory = Path.Combine(Path.GetTempPath(), $"winmcp-audit-{Guid.NewGuid():N}");
     private readonly FakeUiAutomation _automation = new();
 

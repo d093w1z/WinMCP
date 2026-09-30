@@ -71,6 +71,20 @@ public sealed class WindowQuery(IDesktop desktop, TargetPolicy policy)
             new ChildWindowSummary(details.ChildClassNames.Count, byClass));
     }
 
+    /// <summary>Whether an allowlisted window is processing messages right now.</summary>
+    public bool AnswersMessages(WindowHandle window)
+    {
+        ResolveTopLevel(window.ToString());
+        return desktop.AnswersMessages(window);
+    }
+
+    /// <summary>Child windows of an allowlisted top-level window (gatekept like everything else).</summary>
+    public IReadOnlyList<ChildWindow> ChildWindows(WindowHandle window)
+    {
+        ResolveTopLevel(window.ToString());
+        return desktop.GetChildWindows(window);
+    }
+
     /// <summary>
     /// The single gate for every tool that takes a window handle: well-formed, existing, allowlisted, top-level.
     /// A non-allowlisted window yields the same WINDOW_NOT_FOUND as a nonexistent one.

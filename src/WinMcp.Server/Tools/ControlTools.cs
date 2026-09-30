@@ -40,7 +40,8 @@ public sealed class ControlTools(InteractionService interaction)
         interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.SetValue(value), cancellationToken);
 
     [McpServerTool(Name = "select_option", Title = "Select option", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true)]
-    [Description("Selects an item by its text in a combo box (drop-down), list or tab control; the target is the container, not the item."
+    [Description("Selects an item by its text in a combo box (drop-down), list, tab control or tree view; the target is the container, not the item. "
+        + "For trees, give a path such as \"Documents > Reports > Q1.txt\" to expand the way there."
         + TargetHelp + " A combo box is opened only as long as needed. Unknown options return OPTION_NOT_FOUND with the available ones.")]
     public Task<ActionResult> SelectOption(
         [Description("Text of the item to select, e.g. 'HTML'.")] string option,
@@ -66,6 +67,20 @@ public sealed class ControlTools(InteractionService interaction)
         [Description("resource.h name (requires --symbols).")] string? control_symbol = null,
         CancellationToken cancellationToken = default) =>
         interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.SetToggle(ActionArguments.ParseToggle(state)), cancellationToken);
+
+    [McpServerTool(Name = "set_expanded", Title = "Expand or collapse", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Expands or collapses a tree node, combo box, menu or other expandable element. Does nothing (changed=false) if it's already in that state. "
+        + "Children of collapsed tree nodes are not in the UI tree until their parent is expanded." + TargetHelp)]
+    public Task<ActionResult> SetExpanded(
+        [Description("'expanded' or 'collapsed'.")] string state,
+        [Description("Ref from get_ui_tree/find_elements, e.g. 'e52'.")] string? element = null,
+        [Description("Window handle from list_windows; use with criteria.")] string? hwnd = null,
+        [Description("Exact AutomationId.")] string? automation_id = null,
+        [Description("Exact element name, e.g. a tree node's text.")] string? name = null,
+        [Description("UI Automation control type, e.g. TreeItem, MenuItem, ComboBox.")] string? control_type = null,
+        [Description("resource.h name (requires --symbols).")] string? control_symbol = null,
+        CancellationToken cancellationToken = default) =>
+        interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.SetExpanded(ActionArguments.ParseExpanded(state)), cancellationToken);
 
     [McpServerTool(Name = "send_keys", Title = "Send keys", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false, UseStructuredContent = true)]
     [Description(

@@ -8,4 +8,16 @@ public interface IDesktop
 
     /// <summary>Details of any window (top-level or child); null when the handle doesn't identify an existing window.</summary>
     WindowDetails? GetWindowDetails(WindowHandle hwnd);
+
+    /// <summary>
+    /// All visible descendant windows, in enumeration (z/tab) order, using only messages that give up on a hung
+    /// target. Used when UI Automation can't answer for a window.
+    /// </summary>
+    IReadOnlyList<ChildWindow> GetChildWindows(WindowHandle window);
+
+    /// <summary>
+    /// Whether the window's thread is processing messages right now (it answers a WM_NULL within a short timeout).
+    /// Immediate, unlike Windows' own hung flag, which takes ~5 s to appear.
+    /// </summary>
+    bool AnswersMessages(WindowHandle window);
 }

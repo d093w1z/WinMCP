@@ -95,7 +95,7 @@ public sealed class UiTreeTests : IClassFixture<TestAppSession>, IDisposable
     [Fact]
     public async Task Find_by_control_type_counts_all_v1_buttons() =>
         Assert.Equal(
-            ["Apply", "Cancel", "Advanced...", "Slow apply", "Add field", "Freeze 8s"],
+            ["Apply", "Cancel", "Advanced...", "Slow apply", "Add field", "Freeze 8s", "Dialog..."],
             (await Find(new ElementLocator(ControlType: "Button"))).Matches.Select(m => m.Name));
 
     [Fact]

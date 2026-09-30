@@ -12,6 +12,9 @@ public abstract record ElementAction(string Name)
 
     public sealed record SetToggle(bool On) : ElementAction("set_toggle");
 
+    /// <summary>Expands or collapses a tree node, combo box, menu or other expandable element (target state).</summary>
+    public sealed record SetExpanded(bool Expanded) : ElementAction("set_expanded");
+
     /// <summary>Gives the element keyboard focus (used by <c>send_keys</c> before typing).</summary>
     public sealed record Focus() : ElementAction("focus");
 }
@@ -73,6 +76,13 @@ public static class ActionArguments
         "text_equals" => WaitCondition.TextEquals,
         "text_contains" => WaitCondition.TextContains,
         _ => throw Invalid($"Unknown condition '{condition}'. Use exists, gone, enabled, text_equals or text_contains."),
+    };
+
+    public static bool ParseExpanded(string? state) => state?.Trim().ToLowerInvariant() switch
+    {
+        "expanded" or "expand" or "open" => true,
+        "collapsed" or "collapse" or "close" or "closed" => false,
+        _ => throw Invalid($"Unknown state '{state}'. Use 'expanded' or 'collapsed'."),
     };
 
     public static bool ParseToggle(string? state) => state?.Trim().ToLowerInvariant() switch

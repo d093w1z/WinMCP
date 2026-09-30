@@ -32,7 +32,7 @@ public sealed class ScreenshotTests : IClassFixture<TestAppSession>, IDisposable
     {
         var window = _services.Windows.Inspect(_app.WindowHandle.ToString()).Window;
 
-        var shot = await Capture();
+        var shot = await Capture(maxEdge: 4096); // no downscaling: the v2 window exceeds 1280 px at 150%
         using var image = Decode(shot.Png, "testapp-window");
 
         Assert.Equal("PrintWindow", shot.Info.Method);

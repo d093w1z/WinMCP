@@ -17,7 +17,63 @@ internal static class UiaActions
         ElementAction.Select select => Select(automation, element, select.Option),
         ElementAction.SetToggle toggle => SetToggle(element, toggle.On),
         ElementAction.Focus => Focus(element),
+        ElementAction.SetExpanded expanded => SetExpanded(element, expanded.Expanded),
         _ => throw new ArgumentOutOfRangeException(nameof(action)),
+    };
+
+    internal static ActionOutcome? ClickOutcome(Win32Controls.ClickResult result) => result switch
+    {
+        Win32Controls.ClickResult.Handled => new ActionOutcome("win32.BM_CLICK", true),
+        Win32Controls.ClickResult.StillBusy => new ActionOutcome("win32.BM_CLICK", true, Warning: Win32Controls.StillBusyWarning),
+        _ => null,
+    };
+
+    private static ActionOutcome SetExpanded(AutomationElement element, bool expanded)
+    {
+        var pattern = element.Patterns.ExpandCollapse.PatternOrDefault ?? throw NotSupported(element, "expanded or collapsed (no ExpandCollapse pattern)");
+        var state = pattern.ExpandCollapseState.Value;
+        if (state == ExpandCollapseState.LeafNode)
+            throw NotSupported(element, "expanded: it has no children");
+        var target = expanded ? ExpandCollapseState.Expanded : ExpandCollapseState.Collapsed;
+        if (state == target)
+            return new ActionOutcome("none", false, StateAfter: Wire(state));
+        if (expanded) pattern.Expand(); else pattern.Collapse();
+        return new ActionOutcome("uia.ExpandCollapsePattern", true, StateAfter: Wire(pattern.ExpandCollapseState.Value));
+    }
+
+    /// <summary>
+    /// Selects a tree node by path ("Documents > Reports > Q1.txt"), expanding each ancestor: children of collapsed
+    /// nodes aren't in the UIA tree (M9), so a bare name only finds nodes that are already visible.
+    /// </summary>
+    private static ActionOutcome SelectTreePath(AutomationElement tree, string[] path)
+    {
+        var level = tree;
+        AutomationElement? node = null;
+        for (var i = 0; i < path.Length; i++)
+        {
+            var children = level.FindAllChildren(cf => cf.ByControlType(ControlType.TreeItem));
+            node = children.FirstOrDefault(c => string.Equals(c.Properties.Name.ValueOrDefault, path[i], StringComparison.Ordinal))
+                   ?? children.FirstOrDefault(c => string.Equals(c.Properties.Name.ValueOrDefault, path[i], StringComparison.OrdinalIgnoreCase))
+                   ?? throw OptionNotFound(tree, string.Join(" > ", path[..(i + 1)]), children.Select(c => c.Properties.Name.ValueOrDefault ?? "").ToList());
+            if (i < path.Length - 1 && node.Patterns.ExpandCollapse.PatternOrDefault is { } expand
+                && expand.ExpandCollapseState.ValueOrDefault == ExpandCollapseState.Collapsed)
+                expand.Expand();
+            level = node;
+        }
+
+        var item = node!.Patterns.SelectionItem.PatternOrDefault ?? throw NotSupported(node, "selected");
+        if (item.IsSelected.ValueOrDefault)
+            return new ActionOutcome("none", false, ValueAfter: string.Join(" > ", path));
+        item.Select();
+        return new ActionOutcome("uia.SelectionItemPattern", true, ValueAfter: string.Join(" > ", path));
+    }
+
+    private static string Wire(ExpandCollapseState state) => state switch
+    {
+        ExpandCollapseState.Expanded => "expanded",
+        ExpandCollapseState.Collapsed => "collapsed",
+        ExpandCollapseState.PartiallyExpanded => "partially_expanded",
+        _ => "leaf_node",
     };
 
     private static ActionOutcome Focus(AutomationElement element)
@@ -30,6 +86,16 @@ internal static class UiaActions
 
     private static ActionOutcome Invoke(AutomationElement element)
     {
+        // Real Win32 push buttons get a posted BM_CLICK, like a user's click: the app handles it from its message loop.
+        // Through InvokePattern, WinForms runs the handler *inside* the UIA call; a handler that opens a modal dialog
+        // then blocks all UI Automation for that application until the dialog closes (M9 exploration), making the
+        // dialog impossible to operate.
+        var hwnd = element.Properties.NativeWindowHandle.ValueOrDefault;
+        if (hwnd != 0 && element.Properties.ControlType.ValueOrDefault == ControlType.Button
+            && ClassName(element).Contains("BUTTON", StringComparison.OrdinalIgnoreCase)
+            && ClickOutcome(Win32Controls.PostClick(hwnd)) is { } clicked)
+            return clicked;
+
         var patterns = element.Patterns;
         if (patterns.Invoke.PatternOrDefault is { } invoke)
         {
@@ -61,9 +127,9 @@ internal static class UiaActions
             if (expand.ExpandCollapseState.Value == ExpandCollapseState.Collapsed) expand.Expand(); else expand.Collapse();
             return new ActionOutcome("uia.ExpandCollapsePattern", true);
         }
-        var hwnd = element.Properties.NativeWindowHandle.ValueOrDefault;
-        if (hwnd != 0 && ClassName(element).Contains("BUTTON", StringComparison.OrdinalIgnoreCase) && Win32Controls.PostClick(hwnd))
-            return new ActionOutcome("win32.BM_CLICK", true);
+        if (hwnd != 0 && ClassName(element).Contains("BUTTON", StringComparison.OrdinalIgnoreCase)
+            && ClickOutcome(Win32Controls.PostClick(hwnd)) is { } fallbackClick)
+            return fallbackClick;
 
         throw NotSupported(element, "invoked (no Invoke, Toggle, SelectionItem or ExpandCollapse pattern, and not a Win32 button)");
     }
@@ -92,6 +158,10 @@ internal static class UiaActions
     /// </summary>
     private static ActionOutcome Select(UIA3Automation automation, AutomationElement container, string option)
     {
+        var isTree = container.Properties.ControlType.ValueOrDefault == ControlType.Tree;
+        if (isTree && option.Contains('>'))
+            return SelectTreePath(container, option.Split('>', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+
         var expand = container.Patterns.ExpandCollapse.PatternOrDefault;
         var wasCollapsed = expand?.ExpandCollapseState.ValueOrDefault == ExpandCollapseState.Collapsed;
         try
@@ -130,7 +200,13 @@ internal static class UiaActions
 
             if (items.Length == 0 && container.Patterns.Selection.PatternOrDefault is null && expand is null)
                 throw NotSupported(container, "used to select options (it has no selectable items)");
-            throw OptionNotFound(container, option, items.Select(i => i.Properties.Name.ValueOrDefault ?? "").ToList());
+            var notFound = OptionNotFound(container, option, items.Select(i => i.Properties.Name.ValueOrDefault ?? "").ToList());
+            if (isTree)
+                throw new WinMcpException(notFound.Error with
+                {
+                    Hint = "Children of collapsed tree nodes aren't visible. Give the full path, e.g. \"Documents > Reports > Q1.txt\", or expand nodes with set_expanded.",
+                });
+            throw notFound;
         }
         finally
         {

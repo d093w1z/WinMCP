@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
@@ -66,8 +67,79 @@ internal static unsafe class Win32Controls
         return Send(parent, PInvoke.WM_COMMAND, wParam, hwnd) is not null;
     }
 
-    /// <summary>Posted, not sent: a click handler may run for a long time or open a modal dialog.</summary>
-    public static bool PostClick(nint hwnd) => PInvoke.PostMessage((HWND)hwnd, PInvoke.BM_CLICK, default, default);
+    private const uint EsPassword = 0x0020, BmGetCheck = 0x00F0, WmGetText = 0x000D, WmGetTextLength = 0x000E;
+
+    /// <summary>Window text via WM_GETTEXT, which (unlike GetWindowText) works for controls of other processes.</summary>
+    public static string ReadText(nint hwnd)
+    {
+        if (Send(hwnd, WmGetTextLength, 0, 0) is not { } length || length <= 0)
+            return "";
+        var buffer = new char[Math.Min(length, 32_000) + 1];
+        fixed (char* p = buffer)
+        {
+            var copied = Send(hwnd, WmGetText, (nuint)buffer.Length, (nint)p) ?? 0;
+            return new string(p, 0, (int)Math.Clamp(copied, 0, buffer.Length - 1));
+        }
+    }
+
+    public static bool IsPasswordEdit(HWND hwnd, string className) =>
+        ClassIs(className, "EDIT") && ((uint)PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE) & EsPassword) != 0;
+
+    /// <returns>BM_GETCHECK for check boxes and radio buttons; null for other windows.</returns>
+    public static int? ReadCheck(nint hwnd, string className, uint style) =>
+        ClassIs(className, "BUTTON") && (style & 0x0F) is 2 or 3 or 4 or 5 or 6 or 9 && Send(hwnd, BmGetCheck, 0, 0) is { } check
+            ? (int)check
+            : null;
+
+    /// <summary>Matches a Win32 class name, including WinForms' "WindowsForms10.&lt;CLASS&gt;.app..." wrappers.</summary>
+    public static bool ClassIs(string className, string win32Class) =>
+        string.Equals(className, win32Class, StringComparison.OrdinalIgnoreCase)
+        || (className.StartsWith("WindowsForms10.", StringComparison.OrdinalIgnoreCase)
+            && className.Split('.') is [_, var inner, ..] && string.Equals(inner, win32Class, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Clicks a button with BM_CLICK, sent with a short timeout. The handler runs from the application's message
+    /// processing — not inside a UI Automation call, which would block UIA for the whole application while a modal
+    /// dialog is open (M9). If the handler finishes, its effect is visible when this returns; if it opens a dialog or
+    /// keeps working, the send times out (the handler carries on) and the dialog already exists.
+    /// (Posting BM_CLICK and syncing with a sent WM_NULL doesn't work: sent messages are processed before posted ones.)
+    /// </summary>
+    public static ClickResult PostClick(nint hwnd)
+    {
+        nuint result;
+        var ok = PInvoke.SendMessageTimeout(
+            (HWND)hwnd, PInvoke.BM_CLICK, default, default,
+            SEND_MESSAGE_TIMEOUT_FLAGS.SMTO_ABORTIFHUNG | SEND_MESSAGE_TIMEOUT_FLAGS.SMTO_BLOCK, ClickTimeoutMs, &result);
+        if (ok != 0)
+            return ClickResult.Handled;
+        return Marshal.GetLastPInvokeError() == 1460 /* ERROR_TIMEOUT */ ? ClickResult.StillBusy : ClickResult.Failed;
+    }
+
+    private const uint ClickTimeoutMs = 750;
+
+    /// <summary>True when the window's thread answers a WM_NULL within 500 ms, i.e. it is pumping messages.</summary>
+    public static bool Ping(nint hwnd)
+    {
+        nuint result;
+        return PInvoke.SendMessageTimeout(
+            (HWND)hwnd, 0x0000 /* WM_NULL */, default, default,
+            SEND_MESSAGE_TIMEOUT_FLAGS.SMTO_ABORTIFHUNG | SEND_MESSAGE_TIMEOUT_FLAGS.SMTO_BLOCK, 500, &result) != 0;
+    }
+
+    public enum ClickResult
+    {
+        Failed,
+
+        /// <summary>The application processed the click (or is showing the dialog it opened).</summary>
+        Handled,
+
+        /// <summary>The click was delivered but its handler was still running after the sync timeout.</summary>
+        StillBusy,
+    }
+
+    public const string StillBusyWarning =
+        "The click was delivered, but the application is still busy handling it. Check its state (wait_for, get_ui_tree) before acting again.";
+
 
     public static bool SetText(nint hwnd, string text)
     {

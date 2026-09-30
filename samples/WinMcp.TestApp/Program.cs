@@ -2,7 +2,7 @@ namespace WinMcp.TestApp;
 
 internal static class Program
 {
-    private const string Usage = "Usage: WinMcp.TestApp.exe [--position x,y] [--stress <1-2000>]";
+    private const string Usage = "Usage: WinMcp.TestApp.exe [--position x,y] [--stress <1-2000>] [--rows <1-100000>]";
 
     /// <summary>
     /// <c>--position</c> keeps screenshots and bounds stable in tests; <c>--stress N</c> adds N buttons in a
@@ -13,18 +13,21 @@ internal static class Program
     {
         Point? position = null;
         var stressCount = 0;
+        var rowCount = 0;
         for (var i = 0; i < args.Length; i++)
         {
             if (args[i] == "--position" && i + 1 < args.Length && TryParsePoint(args[++i], out var p))
                 position = p;
             else if (args[i] == "--stress" && i + 1 < args.Length && int.TryParse(args[++i], out var n) && n is >= 1 and <= 2000)
                 stressCount = n;
+            else if (args[i] == "--rows" && i + 1 < args.Length && int.TryParse(args[++i], out var rows) && rows is >= 1 and <= 100_000)
+                rowCount = rows;
             else
                 return Fail($"Unrecognized argument '{args[i]}'. {Usage}");
         }
 
         ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm(position, stressCount));
+        Application.Run(new MainForm(position, stressCount, rowCount));
         return 0;
     }
 

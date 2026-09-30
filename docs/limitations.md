@@ -5,7 +5,9 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 ## UI Automation coverage
 
 - **Custom-drawn controls are opaque.** A control that paints itself without an accessibility provider appears as one element with no children (e.g. charmap's character grid: a single `Pane`). WinMCP can report its bounds and capture a screenshot of it, but can't read or act on its contents. Planned: merge child HWNDs that UIA doesn't expose into the tree (plan §A.5).
-- **Labels come from heuristics.** Edits and combos get their name from the preceding label (`"Name:"`); `labeled_by` is usually empty for WinForms. Dialogs whose label order differs from the input order may get misleading names — prefer `automation_id` / `control_symbol` locators.
+- **Labels come from heuristics.** Edits and combos get their name from the preceding label (`"Name:"`); `labeled_by` is usually empty for WinForms. Dialogs whose label order differs from the input order may get misleading names — e.g. a tab control without an accessible name was called `"Events: 0 []"` after an unrelated label (M9). Prefer `automation_id` / `control_symbol` locators.
+- **Modal dialogs opened from inside UI Automation calls block UIA for the whole application** (WinForms menu items, observed in M9). WinMCP falls back to Win32 controls meanwhile (see tools.md); the first call after such a click takes ~3 s (the UIA timeout) before falling back. Push buttons avoid the problem entirely: they're clicked with `BM_CLICK`.
+- **Collapsed tree nodes hide their children** from UIA; use `set_expanded` or a `select_option` path.
 - **Collapsed combo boxes expose no items** to UIA. WinMCP reads options with Win32 messages instead (`inspect_element`), and opens/closes the combo only while selecting. Owner-drawn combos without stored strings have no readable options; at most 200 options are returned (`option_count` gives the total).
 - **Win32 fallbacks exist only where they reach the app's handlers**: `BM_CLICK` (posted), `WM_SETTEXT`, and `CB_SETCURSEL` + an explicit `CBN_SELCHANGE` (without it the app never sees the change).
 

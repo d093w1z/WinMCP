@@ -1,6 +1,6 @@
 # WinMCP tool reference
 
-WinMCP exposes 12 MCP tools over stdio. **Observe** tools are always available; **control** tools exist only when the server runs with `--mode control` (in observe mode they are absent from `tools/list`, not merely refused).
+WinMCP exposes 13 MCP tools over stdio. **Observe** tools are always available; **control** tools exist only when the server runs with `--mode control` (in observe mode they are absent from `tools/list`, not merely refused).
 
 All results are JSON with `snake_case` names, returned as `structuredContent` (plus the same JSON as text), except `get_ui_tree` (text is a compact outline) and `capture_screenshot` (an image block plus JSON text).
 
@@ -37,7 +37,7 @@ The UI Automation tree as an outline, one element per line:
 (12 nodes)
 ```
 
-Parameters: `hwnd` or `element` (subtree root), `max_depth` (default 10), `max_nodes` (default 300). Title bars and combo-box internals are omitted; anonymous single-child panes are collapsed. When truncated, lines like `… 12 more` appear — pass that node's ref as `element`. Win32/MFC numeric ids show their `resource.h` name when configured: `#1000 (IDC_EDIT_NAME)`. States: `disabled`, `offscreen`, `focused`, `password`, `collapsed`/`expanded`, `on`/`off`/`indeterminate`, `selected`. Password values are never returned.
+Parameters: `hwnd` or `element` (subtree root), `max_depth` (default 10), `max_nodes` (default 300). Title bars and combo-box internals are omitted; anonymous single-child panes are collapsed; list-view rows show their cells as one value (`value="Beta | HTML | 2 KB"`). Menu items usually have no AutomationId — find them by `name` + `control_type: MenuItem`. When truncated, lines like `… 12 more` appear — pass that node's ref as `element`. Win32/MFC numeric ids show their `resource.h` name when configured: `#1000 (IDC_EDIT_NAME)`. States: `disabled`, `offscreen`, `focused`, `password`, `collapsed`/`expanded`, `on`/`off`/`indeterminate`, `selected`. Password values are never returned.
 
 ### `find_elements`
 Elements matching all given criteria (case-insensitive): `automation_id`, `name`, `name_contains`, `control_type` (UIA names — `Edit`, not `TextBox`; common mistakes get a correction hint), `class_name`, `control_symbol`. Scope with `hwnd` or `element`; `max_results` (default 25). Returns `matches[]` with refs, `count`, `truncated`.
@@ -61,10 +61,11 @@ All control tools refuse disabled elements (`ELEMENT_DISABLED`) — Windows' own
 
 | Tool | Does | Notes |
 |------|------|-------|
-| `invoke` | Click: button press, check-box toggle, item select, expand/collapse | Destructive annotation. If the handler blocks (e.g. opens a modal dialog), returns success with a `warning` instead of a timeout — don't click again |
+| `invoke` | Click: button press, menu item, check-box toggle, item select, expand/collapse | Destructive annotation. Win32 push buttons are clicked with `BM_CLICK` (so a dialog they open stays operable); if the handler is still running after ~0.75 s (e.g. a modal dialog is open), returns success with a `warning` — don't click again |
 | `set_value` | Replace a field's text (`value`) | Password fields refused; read-only values refused; `value_after` is read back |
-| `select_option` | Select an item by text (`option`) in a combo box, list or tab control — target the container | Opens a collapsed combo only as long as needed and closes it again; unknown option → `OPTION_NOT_FOUND` with `available` |
+| `select_option` | Select an item by text (`option`) in a combo box, list, tab control or tree — target the container | Opens a collapsed combo only as long as needed and closes it again. Trees: give a path, `"Documents > Reports > Q1.txt"`, to expand the way there. Unknown option → `OPTION_NOT_FOUND` with `available` |
 | `set_toggle` | Set a check box to `state` `on`/`off` | Target state, so repeating is harmless (`changed: false`) |
+| `set_expanded` | Expand or collapse a tree node, menu or combo box (`state` `expanded`/`collapsed`) | Target state. Children of collapsed tree nodes aren't in the UI tree until expanded |
 | `send_keys` | Type `text` literally, or `keys` as chords: `"Ctrl+A, Backspace, Enter"` | Optional `element` to focus first. The window is brought to the foreground and input stops with `FOCUS_FAILED` if anything else takes it. Windows-key and window-switching chords refused; password fields refused |
 
 Golden scenario:
@@ -75,6 +76,12 @@ Golden scenario:
 {"name":"invoke","arguments":{"hwnd":"hwnd:0x000A0B1C","automation_id":"applyButton"}}
 {"name":"wait_for","arguments":{"hwnd":"hwnd:0x000A0B1C","automation_id":"statusLabel","condition":"text_contains","text":"Applied"}}
 ```
+
+## Dialogs and the Win32 fallback
+
+- A dialog opened by the application is a separate top-level window: find it with `list_windows` (its `owner` is the main window) or `inspect_window(...).owned_windows`, then use its `hwnd` with the other tools.
+- Some frameworks (WinForms menu items, observed in M9) run a click handler *inside* the UI Automation call; if that handler opens a modal dialog, UI Automation stops answering for the whole application until the dialog closes. WinMCP detects this (UIA times out while the window still processes messages) and falls back to the window's **Win32 controls**: `get_ui_tree` / `find_elements` then report `source: "win32"` (the outline starts with a note), and actions on those refs use Win32 messages — `invoke` (buttons), `set_toggle` (check boxes), `set_value` (edits), `select_option` (combo boxes). Close the dialog (e.g. `invoke` its OK button) and UI Automation answers again; refs from the fallback tree then become stale.
+- A window that doesn't process messages at all is reported as `TARGET_NOT_RESPONDING`, not given a fallback.
 
 ## Errors
 

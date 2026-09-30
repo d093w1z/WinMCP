@@ -19,7 +19,7 @@ public static class TreeNormalizer
             var normalized = Normalize(child);
             while (IsAnonymousWrapper(normalized))
                 normalized = normalized.Children[0];
-            children.Add(normalized);
+            children.Add(FoldRowCells(normalized));
         }
         return children;
     }
@@ -29,6 +29,18 @@ public static class TreeNormalizer
         child.ControlType == "TitleBar"
         // A combo's inner text and drop-down button duplicate the combo's own Value and ExpandCollapse patterns.
         || (parent.ControlType == "ComboBox" && child.ControlType is "Button" or "Text");
+
+    /// <summary>
+    /// A list-view row exposes one Text child per column (M9: 4 nodes per row). Folding them into the row's value
+    /// ("Beta | HTML | 2 KB") keeps the information and makes list trees about 4× smaller.
+    /// </summary>
+    private static RawElement FoldRowCells(RawElement row) =>
+        row.ControlType is "ListItem" or "DataItem"
+        && row.Children.Count > 0
+        && row.Value is null
+        && row.Children.All(c => c.ControlType == "Text" && c.Children.Count == 0)
+            ? row with { Value = string.Join(" | ", row.Children.Select(c => c.Name)), Children = [] }
+            : row;
 
     private static bool IsAnonymousWrapper(RawElement element) =>
         element.ControlType is "Pane" or "Group" or "Custom"

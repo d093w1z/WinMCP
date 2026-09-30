@@ -20,12 +20,14 @@ public sealed record UiNode(
     string? ControlSymbol = null);
 
 /// <param name="TruncationReason"><c>max_depth</c> or <c>max_nodes</c> (the first limit hit).</param>
-public sealed record UiTree(WindowHandle Window, UiNode Root, int NodeCount, bool Truncated, string? TruncationReason);
+/// <param name="Source">Null for UI Automation; <c>win32</c> when UI Automation couldn't answer and the tree was built from child windows.</param>
+public sealed record UiTree(WindowHandle Window, UiNode Root, int NodeCount, bool Truncated, string? TruncationReason, string? Source = null);
 
 public sealed record ElementMatch(string Ref, string ControlType, string Name, string? AutomationId, string? Value, IReadOnlyList<string>? States);
 
 /// <param name="Count">Total matches; <see cref="Matches"/> holds at most max_results of them.</param>
-public sealed record ElementMatches(IReadOnlyList<ElementMatch> Matches, int Count, bool Truncated);
+/// <param name="Source">As in <see cref="UiTree.Source"/>.</param>
+public sealed record ElementMatches(IReadOnlyList<ElementMatch> Matches, int Count, bool Truncated, string? Source = null);
 
 /// <summary>AND-ed criteria for finding elements. String comparisons are case-insensitive.</summary>
 /// <param name="ControlSymbol"><c>resource.h</c> name such as <c>IDC_EDIT_NAME</c>; needs <c>--symbols</c> for the process.</param>

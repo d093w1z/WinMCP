@@ -43,7 +43,7 @@ public sealed class InteractionTests : IClassFixture<TestAppSession>, IDisposabl
         Assert.Equal(("uia.ValuePattern", "Mukesh"), (name.Method, name.ValueAfter));
         Assert.Equal(("uia.SelectionItemPattern", "HTML"), (type.Method, type.ValueAfter));
         Assert.Equal(("none", false), (feature.Method, feature.Changed)); // already on
-        Assert.Equal("uia.InvokePattern", apply.Method);
+        Assert.Equal("win32.BM_CLICK", apply.Method); // HWND push buttons are clicked by message, not InvokePattern (M9)
         Assert.Contains("nameTextBox.TextChanged", _app.Text("eventLogLabel"));
         Assert.Contains("typeComboBox.SelectedIndexChanged", _app.Text("eventLogLabel"));
     }
