@@ -37,8 +37,8 @@ TestResults/
 coverage*.xml
 *.coverage
 
-# WinMCP runtime output
-audit/
+# Runtime logs. (No "audit/" rule: audit logs are written to %LOCALAPPDATA% or temp folders, and on Windows
+# that pattern also matched src/WinMcp.Core/Audit/, which kept the source out of git and broke CI.)
 *.log
 
 # OS
