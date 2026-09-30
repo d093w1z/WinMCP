@@ -10,9 +10,9 @@ jobs:
   build-test:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
@@ -25,14 +25,14 @@ jobs:
         run: dotnet test --solution WinMcp.slnx -c Release --no-build --filter-not-trait "Category=Windows" --ignore-exit-code 8
 
   # Experimental: are hosted runners' desktop sessions reliable enough for UI Automation?
-  # To be decided at M3 (plan §E.5); a self-hosted runner is the fallback.
+  # To be decided at M3 (plan Â§E.5); a self-hosted runner is the fallback.
   ui-tests:
     runs-on: windows-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
