@@ -20,6 +20,11 @@ public sealed class Win32DesktopTests : IClassFixture<TestAppSession>
         _query = new WindowQuery(_desktop, new TargetPolicy(WinMcpOptions.Parse(["--allow", "WinMcp.TestApp"]), Environment.ProcessId));
     }
 
+    // With UAC, an administrator's token only holds the Administrators group when elevated.
+    private static bool RunningElevated =>
+        new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent())
+            .IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+
     [Fact]
     public void Finds_the_TestApp_window_with_accurate_process_details()
     {
@@ -31,7 +36,9 @@ public sealed class Win32DesktopTests : IClassFixture<TestAppSession>
         Assert.EndsWith(@"\WinMcp.TestApp.exe", window.Process.Path, StringComparison.OrdinalIgnoreCase);
         // TestApp is built by the same SDK as this test process, so it gets the same architecture.
         Assert.Equal(RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant(), window.Process.Architecture);
-        Assert.False(window.Process.Elevated);
+        // The app inherits this process's token: not elevated on a normal desktop, elevated on CI runners
+        // (hosted runners run as administrator with UAC off).
+        Assert.Equal(RunningElevated, window.Process.Elevated);
         Assert.True(window.Enabled);
         Assert.False(window.Minimized);
         Assert.Null(window.Owner);

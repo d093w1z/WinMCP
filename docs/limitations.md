@@ -37,7 +37,7 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 
 - WinMCP runs at the user's normal integrity level. **Windows' UIPI blocks UI Automation and input to elevated (administrator) applications**; such processes show `elevated: null` or `true`. Running WinMCP itself elevated is possible but not recommended. A clear `ACCESS_DENIED_ELEVATED` error is planned.
 - The secure desktop (UAC prompts, lock screen) is never accessible, by Windows design and by WinMCP's deny-list.
-- GUI tests need an unlocked, interactive desktop. Whether CI-hosted runners provide one reliably is still open (the CI job for GUI tests is marked experimental).
+- GUI tests need an unlocked, interactive desktop. GitHub's hosted Windows runners provide one: the whole GUI suite, MFC included, ran there (2026-10-01; the only failure was a test assuming a non-elevated session — runners run as administrator with UAC off). The CI job stays marked experimental until it has been green for a while.
 
 ## Display scaling
 
