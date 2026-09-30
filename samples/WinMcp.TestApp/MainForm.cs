@@ -31,9 +31,13 @@ internal sealed class MainForm : Form
 
     public MainForm(Point? position, int stressCount = 0)
     {
+        // Layout below is in 96-DPI units. Declaring that baseline lets WinForms scale positions and sizes with the
+        // fonts; without it only fonts scaled and captions were clipped at 150% (seen in M8's screenshots).
+        SuspendLayout();
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScaleMode = AutoScaleMode.Dpi;
         Name = "MainForm";
         Text = "WinMCP Test App";
-        AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(480, 340);
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
@@ -96,6 +100,9 @@ internal sealed class MainForm : Form
         };
         addField.Click += (_, _) => AddDynamicField();
         freeze.Click += (_, _) => Thread.Sleep(FreezeDuration);
+
+        ResumeLayout(false);
+        PerformLayout();
     }
 
     private void AddStressPanel(int count)
@@ -142,9 +149,10 @@ internal sealed class MainForm : Form
         if (_dynamicFieldCount == MaxDynamicFields) return;
 
         var index = ++_dynamicFieldCount;
+        // Added after the form's one-time autoscaling, so convert 96-DPI layout units explicitly.
         var y = 175 + (index - 1) * 30;
-        var label = new Label { Name = $"dynamicLabel{index}", Text = $"Dynamic {index}:", Location = new Point(12, y + 3), AutoSize = true };
-        var box = new TextBox { Name = $"dynamicTextBox{index}", Location = new Point(130, y), Width = 220 };
+        var label = new Label { Name = $"dynamicLabel{index}", Text = $"Dynamic {index}:", Location = Scaled(12, y + 3), AutoSize = true };
+        var box = new TextBox { Name = $"dynamicTextBox{index}", Location = Scaled(130, y), Width = LogicalToDeviceUnits(220) };
         box.TextChanged += (_, _) => Record($"{box.Name}.TextChanged");
         Controls.Add(label);
         Controls.Add(box);
@@ -152,6 +160,8 @@ internal sealed class MainForm : Form
         _dynamicControls.Add(box);
         Record("addFieldButton.FieldAdded");
     }
+
+    private Point Scaled(int x, int y) => new(LogicalToDeviceUnits(x), LogicalToDeviceUnits(y));
 
     private void UpdateAdvancedEnabled() => _advanced.Enabled = _enable.Checked && _name.Text.Length > 0;
 
