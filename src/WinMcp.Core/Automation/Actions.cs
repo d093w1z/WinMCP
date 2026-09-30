@@ -11,7 +11,24 @@ public abstract record ElementAction(string Name)
     public sealed record Select(string Option) : ElementAction("select_option");
 
     public sealed record SetToggle(bool On) : ElementAction("set_toggle");
+
+    /// <summary>Gives the element keyboard focus (used by <c>send_keys</c> before typing).</summary>
+    public sealed record Focus() : ElementAction("focus");
 }
+
+/// <summary>Sends keyboard input to a top-level window, which must be (and stay) the foreground window.</summary>
+public interface IKeyboard
+{
+    /// <summary>
+    /// Brings <paramref name="window"/> to the foreground, then sends <paramref name="input"/> in chunks, verifying
+    /// before every chunk that the foreground still belongs to the window. Throws FOCUS_FAILED (nothing or only a
+    /// prefix was sent) rather than ever typing into another window, and WINDOW_MINIMIZED for minimized windows.
+    /// </summary>
+    Task<KeyboardOutcome> SendAsync(Desktop.WindowHandle window, KeyInput input, CancellationToken cancellationToken);
+}
+
+/// <param name="Chunks">Units sent: characters for text, chords for keys.</param>
+public sealed record KeyboardOutcome(string Method, int Chunks);
 
 /// <summary>What an <see cref="IUiAutomation"/> implementation did.</summary>
 /// <param name="Method">How it was done, e.g. <c>uia.InvokePattern</c> or <c>win32.BM_CLICK</c>; <c>none</c> when nothing had to change.</param>

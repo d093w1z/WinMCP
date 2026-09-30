@@ -17,7 +17,7 @@ internal sealed class WinMcpServices : IDisposable
         Automation = new UiaAutomation(Dispatcher);
         Windows = new WindowQuery(new Win32Desktop(), new TargetPolicy(options, Environment.ProcessId));
         Tree = new UiTreeService(Windows, Automation, new ElementRegistry(), new SymbolProvider(options));
-        Interaction = new InteractionService(Tree, Automation, options, new JsonlAuditLog(options.AuditDirectory));
+        Interaction = new InteractionService(Tree, Automation, new Win32Keyboard(), Windows, options, new JsonlAuditLog(options.AuditDirectory));
         AuditDirectory = options.AuditDirectory;
     }
 

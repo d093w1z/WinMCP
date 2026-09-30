@@ -67,6 +67,26 @@ public sealed class ControlTools(InteractionService interaction)
         CancellationToken cancellationToken = default) =>
         interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.SetToggle(ActionArguments.ParseToggle(state)), cancellationToken);
 
+    [McpServerTool(Name = "send_keys", Title = "Send keys", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description(
+        "Types into an application: 'text' is typed literally; 'keys' is a comma-separated sequence of key combinations, e.g. \"Ctrl+A, Backspace, Enter\" "
+        + "(modifiers Ctrl/Shift/Alt; keys A–Z, 0–9, F1–F24, Enter, Tab, Esc, Backspace, Delete, Insert, Home, End, PageUp, PageDown, Up/Down/Left/Right, Space, Menu). "
+        + "Prefer set_value/invoke/select_option when they fit; use this for shortcuts or controls without a settable value. "
+        + "Give 'element' (or hwnd + criteria) to focus a control first, or just 'hwnd' to type into whatever has focus. "
+        + "The window is brought to the foreground and input stops with FOCUS_FAILED if anything else takes the foreground. "
+        + "Windows-key and window-switching combinations (Alt+Tab, Ctrl+Esc, ...) and password fields are refused.")]
+    public Task<ActionResult> SendKeys(
+        [Description("Literal text to type. Newlines press Enter.")] string? text = null,
+        [Description("Comma-separated key combinations, e.g. \"Ctrl+A, Delete\".")] string? keys = null,
+        [Description("Ref of the element to focus first, e.g. 'e3'.")] string? element = null,
+        [Description("Window handle from list_windows.")] string? hwnd = null,
+        [Description("Exact AutomationId of the element to focus (with hwnd).")] string? automation_id = null,
+        [Description("Exact name of the element to focus (with hwnd).")] string? name = null,
+        [Description("UI Automation control type of the element to focus (with hwnd).")] string? control_type = null,
+        [Description("resource.h name of the element to focus (requires --symbols).")] string? control_symbol = null,
+        CancellationToken cancellationToken = default) =>
+        interaction.SendKeysAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), KeyInputParser.Parse(text, keys), cancellationToken);
+
     private static ElementLocator Locator(string? automationId, string? name, string? controlType, string? controlSymbol) =>
         new(AutomationId: automationId, Name: name, ControlType: controlType, ControlSymbol: controlSymbol);
 }

@@ -2,7 +2,7 @@
 
 An MCP server that gives AI agents semantic access to native Windows applications — HWND hierarchy, UI Automation tree and Win32 metadata — rather than screenshots and mouse coordinates.
 
-> **Status:** proof of concept, under active design. See [docs/design/mvp-plan.md](docs/design/mvp-plan.md). Tools so far — read-only: `list_windows`, `inspect_window`, `get_ui_tree`, `find_elements`, `inspect_element`, `wait_for`, `capture_screenshot`; with `--mode control` also: `invoke`, `set_value`, `select_option`, `set_toggle`.
+> **Status:** proof of concept, under active design. See [docs/design/mvp-plan.md](docs/design/mvp-plan.md), the [tool reference](docs/tools.md), [known limitations](docs/limitations.md) and the [security model](docs/security.md). Tools so far — read-only: `list_windows`, `inspect_window`, `get_ui_tree`, `find_elements`, `inspect_element`, `wait_for`, `capture_screenshot`; with `--mode control` also: `invoke`, `set_value`, `select_option`, `set_toggle`, `send_keys`.
 
 ## Requirements
 
@@ -51,7 +51,7 @@ Then start Claude Code in the repo root and approve the `winmcp` server when pro
 claude mcp add winmcp -- "<repo>\artifacts\winmcp\WinMcp.Server.exe" --allow WinMcp.TestApp
 ```
 
-Then launch `samples\WinMcp.TestApp` and ask, for example: *"Find the WinMCP test application, describe its controls, and tell me the current status."*
+Then launch `artifacts\testapp\WinMcp.TestApp.exe` (published by the same script; running it from `bin\` would lock files the build needs) and ask, for example: *"Find the WinMCP test application, describe its controls, and tell me the current status."*
 
 To let the agent interact, change `"observe"` to `"control"` in `.mcp.json` (or pass `--mode control`) and reconnect. Then try the MVP prompt: *"Find the WinMCP test application, inspect its UI, enter 'Mukesh' into the Name field, select HTML from the Type dropdown, click Apply, and tell me the resulting status."*
 

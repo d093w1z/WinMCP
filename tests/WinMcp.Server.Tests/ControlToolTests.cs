@@ -6,7 +6,7 @@ namespace WinMcp.Server.Tests;
 
 public sealed class ControlToolTests : IDisposable
 {
-    private static readonly string[] ControlTools = ["invoke", "select_option", "set_toggle", "set_value"];
+    private static readonly string[] ControlTools = ["invoke", "select_option", "send_keys", "set_toggle", "set_value"];
     private readonly string _auditDirectory = Path.Combine(Path.GetTempPath(), $"winmcp-audit-{Guid.NewGuid():N}");
     private readonly FakeUiAutomation _automation = new();
 
@@ -45,6 +45,7 @@ public sealed class ControlToolTests : IDisposable
         Assert.True(tools["invoke"]?.DestructiveHint);   // a click can do anything, e.g. "Delete all"
         Assert.False(tools["invoke"]?.IdempotentHint);
         Assert.True(tools["set_toggle"]?.IdempotentHint); // target state, not a flip
+        Assert.True(tools["send_keys"]?.DestructiveHint); // shortcuts can do anything
         Assert.Contains("interact", server.Client.ServerInstructions);
     }
 

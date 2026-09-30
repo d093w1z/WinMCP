@@ -138,6 +138,13 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
         return new ResolvedElement(reference, new ElementKey(scope.Handle, target.RuntimeId), target, scope.Window.Window);
     }
 
+    /// <summary>The element with keyboard focus in the window, if any (fetched fresh).</summary>
+    public async Task<RawElement?> FocusedElementAsync(WindowHandle window, CancellationToken cancellationToken)
+    {
+        var tree = await FetchAsync(window, cancellationToken);
+        return tree.DescendantsAndSelf().LastOrDefault(e => e.HasKeyboardFocus);
+    }
+
     public const int DefaultWaitTimeoutMs = 5000;
     private const int MaxWaitTimeoutMs = 60_000;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);

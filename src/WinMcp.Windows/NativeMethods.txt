@@ -38,6 +38,12 @@ GetParent
 // Capture
 PrintWindow
 
+// Keyboard
+SendInput
+SetForegroundWindow
+BringWindowToTop
+MapVirtualKey
+
 // Process information
 OpenProcess
 QueryFullProcessImageName

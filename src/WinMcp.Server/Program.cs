@@ -39,6 +39,7 @@ builder.Services.AddSingleton<IDesktop, Win32Desktop>();
 builder.Services.AddSingleton(_ => new AutomationDispatcher(uiaTimeout: TimeSpan.FromSeconds(3), hardTimeout: TimeSpan.FromSeconds(10)));
 builder.Services.AddSingleton<IUiAutomation, UiaAutomation>();
 builder.Services.AddSingleton<IScreenCapture, PrintWindowCapture>();
+builder.Services.AddSingleton<IKeyboard, Win32Keyboard>();
 builder.Services.AddWinMcpServer(options).WithStdioServerTransport();
 
 await builder.Build().RunAsync();

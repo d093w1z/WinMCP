@@ -31,11 +31,64 @@ public sealed class InteractionServiceTests
         _automation.Trees[Mail.Hwnd] = Element("9", "Window", "Inbox").With(Element("9.1", "Button", "Delete all", "deleteAll"));
     }
 
+    private readonly FakeKeyboard _keyboard = new();
+
     private InteractionService Service(ServerMode mode = ServerMode.Control)
     {
         var options = new WinMcpOptions(mode, ["WinMcp.TestApp"]);
-        var tree = new UiTreeService(new WindowQuery(new FakeDesktop(Main, Mail), new TargetPolicy(options, 999)), _automation, new ElementRegistry(), new SymbolProvider(options));
-        return new InteractionService(tree, _automation, options, _audit);
+        var windows = new WindowQuery(new FakeDesktop(Main, Mail), new TargetPolicy(options, 999));
+        var tree = new UiTreeService(windows, _automation, new ElementRegistry(), new SymbolProvider(options));
+        return new InteractionService(tree, _automation, _keyboard, windows, options, _audit);
+    }
+
+    private Task<ActionResult> SendKeys(KeyInput input, ElementLocator? locator = null, string? hwnd = Hwnd, ServerMode mode = ServerMode.Control) =>
+        Service(mode).SendKeysAsync(hwnd, null, locator ?? new ElementLocator(), input, TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task Send_keys_to_an_element_focuses_it_then_types_into_its_window()
+    {
+        var result = await SendKeys(new KeyInput.Text("Mukesh"), new ElementLocator(AutomationId: "nameTextBox"));
+
+        Assert.Equal("fake.SendInput", result.Method);
+        Assert.IsType<ElementAction.Focus>(Assert.Single(_automation.Performed).Action);
+        Assert.Equal((Main.Hwnd, (KeyInput)new KeyInput.Text("Mukesh")), Assert.Single(_keyboard.Sent));
+        var entry = Assert.Single(_audit.Entries);
+        Assert.Equal(("send_keys", "ok", "Mukesh"), (entry.Tool, entry.Outcome, entry.Arguments["text"]));
+    }
+
+    [Fact]
+    public async Task Send_keys_to_a_window_types_without_focusing_an_element()
+    {
+        await SendKeys(KeyInputParser.Parse(null, "Ctrl+A, Delete"));
+
+        Assert.Empty(_automation.Performed);
+        Assert.Equal("Ctrl+A, Delete", Assert.Single(_audit.Entries).Arguments["keys"]);
+        Assert.Single(_keyboard.Sent);
+    }
+
+    [Fact]
+    public async Task Send_keys_refuses_password_targets_and_a_focused_password_field()
+    {
+        var target = await Assert.ThrowsAsync<WinMcpException>(() => SendKeys(new KeyInput.Text("hunter2"), new ElementLocator(AutomationId: "pinTextBox")));
+        Assert.Equal(WinMcpErrorCode.PasswordField, target.Error.Code);
+
+        // Only a window given, but a password box has focus.
+        _automation.Trees[Main.Hwnd] = TestAppTree().With([Element("1.20", "Edit", "PIN", "pinTextBox", password: true) with { HasKeyboardFocus = true }]);
+        var focused = await Assert.ThrowsAsync<WinMcpException>(() => SendKeys(new KeyInput.Text("hunter2")));
+        Assert.Equal(WinMcpErrorCode.PasswordField, focused.Error.Code);
+
+        Assert.Empty(_keyboard.Sent);
+        Assert.All(_audit.Entries, e => Assert.Equal("<redacted>", e.Arguments["text"]));
+    }
+
+    [Fact]
+    public async Task Send_keys_is_refused_in_observe_mode_and_for_other_applications()
+    {
+        Assert.Equal(WinMcpErrorCode.OperationNotPermitted,
+            (await Assert.ThrowsAsync<WinMcpException>(() => SendKeys(new KeyInput.Text("x"), mode: ServerMode.Observe))).Error.Code);
+        Assert.Equal(WinMcpErrorCode.WindowNotFound,
+            (await Assert.ThrowsAsync<WinMcpException>(() => SendKeys(new KeyInput.Text("x"), hwnd: "hwnd:0x00000020"))).Error.Code);
+        Assert.Empty(_keyboard.Sent);
     }
 
     private Task<ActionResult> Perform(ElementAction action, ElementLocator locator, string? hwnd = Hwnd, ServerMode mode = ServerMode.Control) =>

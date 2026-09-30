@@ -42,6 +42,7 @@ internal sealed class InProcessServer : IAsyncDisposable
         builder.Services.AddSingleton(automation);
         var capture = new FakeScreenCapture();
         builder.Services.AddSingleton<WinMcp.Core.Capture.IScreenCapture>(capture);
+        builder.Services.AddSingleton<IKeyboard>(new FakeKeyboard());
         builder.Services
             .AddWinMcpServer(WinMcpOptions.Parse(args))
             .WithStreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream());

@@ -29,6 +29,9 @@ internal static class E2E
             Command = ServerPath,
             Arguments = args,
             StandardErrorLines = stderr.Enqueue,
+            // The SDK waits this long for the server to exit before closing its stdin; the server itself exits
+            // ~30 ms after stdin closes (measured in M8), so the 5 s default only slowed every test down.
+            ShutdownTimeout = TimeSpan.FromMilliseconds(500),
         });
         var client = await McpClient.CreateAsync(transport, cancellationToken: TestContext.Current.CancellationToken);
         return (client, stderr);

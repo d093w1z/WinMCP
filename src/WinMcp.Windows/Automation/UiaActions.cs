@@ -16,8 +16,17 @@ internal static class UiaActions
         ElementAction.SetValue set => SetValue(element, set.Value),
         ElementAction.Select select => Select(automation, element, select.Option),
         ElementAction.SetToggle toggle => SetToggle(element, toggle.On),
+        ElementAction.Focus => Focus(element),
         _ => throw new ArgumentOutOfRangeException(nameof(action)),
     };
+
+    private static ActionOutcome Focus(AutomationElement element)
+    {
+        if (!element.Properties.IsKeyboardFocusable.ValueOrDefault)
+            throw NotSupported(element, "focused (it isn't keyboard-focusable)");
+        element.Focus();
+        return new ActionOutcome("uia.SetFocus", true);
+    }
 
     private static ActionOutcome Invoke(AutomationElement element)
     {
