@@ -34,7 +34,8 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 
 ## Display scaling
 
-- WinMCP is Per-Monitor-V2 DPI aware and reports all geometry in **physical pixels**; `dpi` is reported per window. **Scaling above 100% has not been verified yet** (the development session runs at 96 DPI over Remote Desktop).
+- WinMCP reports all geometry in **physical pixels** (Per-Monitor-V2, independent of the host process's own DPI awareness); `dpi` is reported per window. Verified at 100% and 150% on a single monitor. **Mixed-DPI multi-monitor setups are untested.**
+- Applications that aren't DPI-aware are bitmap-stretched by Windows; their UIA bounds and captures reflect what's on screen, but text in captures may look blurry.
 - Coordinates on multi-monitor setups can be negative (virtual-screen space).
 
 ## Frameworks

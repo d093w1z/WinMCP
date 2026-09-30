@@ -509,7 +509,7 @@ Flakiness controls: no `Thread.Sleep` in tests (use `wait_for`/polling with dead
 | **M5 — `inspect_element` + symbol mapping** ✅ | `inspect_element` (by ref or hwnd + unique locator; `AMBIGUOUS_MATCH` lists candidate refs), live extras (framework, patterns, focusability, help text, labeled_by, control ID), combo options via `CB_GETLBTEXT` + `option_count`, suggested locator checked for uniqueness; `resource.h` parser/`SymbolTable`/`SymbolProvider`, `--symbols`, `control_symbol` in outline/find/inspect. Test infrastructure: job object for launched apps, run watchdog, hang dumps | 248 tests green; symbols verified live against charmap (a real `#32770` dialog) ahead of the MFC app |
 | **M6 — Interaction + `wait_for`** ✅ | `invoke`, `set_value`, `select_option`, `set_toggle` (control mode only), `wait_for` (both modes), `InteractionService` (enabled/password/mode checks, audit), `UiaActions` (patterns + Win32 fallbacks), JSONL audit log, `--audit-dir` | 290 tests green; **golden scenario passes in integration and in E2E over stdio**, audit shows only semantic methods; GUI suites 3/3 runs |
 | **M7 — Screenshots** ✅ | `capture_screenshot` (window or element + padding, `max_edge` downscaling, PNG image block + JSON metadata), `PrintWindowCapture` (PW_RENDERFULLCONTENT, hang-safe), `ELEMENT_OFFSCREEN` | 312 tests green; captures inspected visually; covered-window capture shows no pixels of the window on top |
-| **M8 — `send_keys`, E2E, hardening → MVP** | Foreground verification, E2E project, README quickstart, tools.md, limitations.md, security.md; agent eval runs | Test 20 + E2E green; **MVP criteria (§H) met** |
+| **M8 — `send_keys`, E2E, hardening → MVP** ✅ (except agent eval) | `send_keys` with per-chunk foreground verification, 3× faster E2E, docs, DPI fixes (library + TestApp), 20/20 stability at 150% | All MVP criteria met except #4 (agent eval, pending) |
 | M9 — TestApp v2 breadth | Menus, ListView, TreeView, dialog, tabs, custom-painted control; tree/actions extended (ExpandCollapse, grid/table items, menu navigation). **Budgeted tree fetch** (walk level by level, stop at max_nodes/max_depth; target-side search for refs and find_elements) so large lists don't hit the UIA timeout — see M4 notes | New integration tests; 10k-row list stays under the timeout |
 | M10 — MFC test app | C++/MFC dialog app equivalent to v1+v2 (CDialog, CEdit, CComboBox, CButton, CListCtrl, CTreeCtrl) + a CFrameWnd/CView doc app with menu/toolbar/status bar. **Same integration suite parameterized over both apps** (per-app locator map — MFC map uses `control_symbol` locators via the app's own `resource.h`) | Suite runs against MFC app; symbol mapping verified live; diffs documented |
 | M11 — MFC investigation | See below; `docs/mfc-investigation.md`; go/no-go on in-process inspector | Report + enrichment features that proved reliable |
@@ -673,7 +673,21 @@ Open items: **mixed/high-DPI behaviour is untested** (the machine is at 100%); r
 - **Manual testing without locking builds**: `scripts\publish-mcp.ps1` also publishes the TestApp to `artifacts\testapp` (same junction scheme). A TestApp launched from `bin\Release` blocks every build of it — hit during M8.
 - **Docs**: `docs/tools.md` (reference with examples), `docs/limitations.md` (measured limits), `docs/security.md` (model and guarantees).
 - **Remote**: `origin` = `git@github.com:d093w1z/WinMCP.git` (push pending SSH key setup on this machine).
-- Still open for MVP sign-off: DPI > 100% check; agent eval (≥ 4/5 Claude Code sessions, criterion 4).
+- **DPI at 150% — found and fixed two bugs.** (1) WinMCP library: geometry depended on the host process being DPI-aware; in the DPI-unaware test runner, `GetWindowRect`/UIA returned scaled values while DWM returned physical ones, so a capture used 259×197 of a 484×387 window. `DpiScope` now runs all Win32 geometry calls Per-Monitor-V2, and the UIA worker thread is PMv2 for life; the server exe was already PMv2 via manifest, so it was likely unaffected, but the library no longer depends on it. (2) TestApp: layout built in code without `AutoScaleDimensions` → fonts scaled, layout didn't, captions clipped. Fixed; captures inspected at 150%.
+- **Stability: 20/20 consecutive runs of the integration (54) and E2E (9) suites passed at 150% scaling** (~63 s per run, no leftover processes). Log: `artifacts\test-results\stability.log`.
+
+### MVP criteria status (§ "MVP definition")
+
+| # | Criterion | Status |
+|---|-----------|--------|
+| 1 | Clean build + Core/Server tests | ✅ 248 + 26 pass |
+| 2 | Integration tests 20 consecutive runs, 0 failures | ✅ 20/20 at 150% scaling (54 tests; the plan's 20 are covered and extended) |
+| 3 | Golden scenario E2E over stdio, audit shows only semantic methods | ✅ `GoldenScenarioE2ETests` |
+| 4 | Claude Code solves the MVP prompt in ≥ 4/5 fresh sessions without screenshots | ⏳ pending the user's agent eval |
+| 5 | Tool surface; observe mode lists only observe tools | ✅ 12 tools: 7 observe + 5 control (`send_keys` included) |
+| 6 | Security defaults tested | ✅ allowlist, `WINDOW_NOT_FOUND` for others, `send_keys` never types elsewhere (charmap test) |
+| 7 | Performance: tree < 500 ms, interactions < 300 ms | ✅ TestApp tree ~100–150 ms (asserted); actions 5–15 ms in M0/M6 measurements |
+| 8 | Docs: README, tools, limitations, security | ✅ |
 
 ---
 
