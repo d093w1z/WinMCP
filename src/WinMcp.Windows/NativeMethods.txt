@@ -35,6 +35,7 @@ WM_SETTEXT
 BM_CLICK
 PostMessage
 GetParent
+GetGUIThreadInfo
 
 // Capture
 PrintWindow

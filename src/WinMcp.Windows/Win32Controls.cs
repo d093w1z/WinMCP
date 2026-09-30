@@ -117,6 +117,14 @@ internal static unsafe class Win32Controls
 
     private const uint ClickTimeoutMs = 750;
 
+    /// <summary>The window with keyboard focus on <paramref name="hwnd"/>'s UI thread (any process); 0 when none or unknown.</summary>
+    public static nint FocusedWindow(nint hwnd)
+    {
+        var thread = PInvoke.GetWindowThreadProcessId((HWND)hwnd, null);
+        var info = new GUITHREADINFO { cbSize = (uint)sizeof(GUITHREADINFO) };
+        return thread != 0 && PInvoke.GetGUIThreadInfo(thread, ref info) ? (nint)info.hwndFocus.Value : 0;
+    }
+
     /// <summary>True when the window's thread answers a WM_NULL within 500 ms, i.e. it is pumping messages.</summary>
     public static bool Ping(nint hwnd)
     {

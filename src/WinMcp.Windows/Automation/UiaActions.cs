@@ -99,9 +99,13 @@ internal static class UiaActions
         var patterns = element.Patterns;
         if (patterns.Invoke.PatternOrDefault is { } invoke)
         {
+            var toolbar = ToolbarHost(element);
+            var focusBefore = toolbar != 0 ? Win32Controls.FocusedWindow(toolbar) : 0;
             try
             {
                 invoke.Invoke();
+                if (toolbar != 0)
+                    GiveFocusBack(element, toolbar, focusBefore);
             }
             catch (Exception ex) when (UiaErrors.IsTimeout(ex))
             {
@@ -134,6 +138,34 @@ internal static class UiaActions
         throw NotSupported(element, "invoked (no Invoke, Toggle, SelectionItem or ExpandCollapse pattern, and not a Win32 button)");
     }
 
+    /// <returns>The comctl32 toolbar window hosting a windowless toolbar button; 0 for anything else.</returns>
+    private static nint ToolbarHost(AutomationElement element)
+    {
+        if (element.Properties.NativeWindowHandle.ValueOrDefault != 0)
+            return 0;
+        var parent = element.Parent;
+        return parent is not null && ClassName(parent) == "ToolbarWindow32" ? parent.Properties.NativeWindowHandle.ValueOrDefault : 0;
+    }
+
+    /// <summary>
+    /// Invoking a toolbar button through UIA leaves keyboard focus on the toolbar, which a mouse click never does. With
+    /// focus parked there, an MFC frame's menu bar no longer opens (M10). Best effort: a command that moved focus
+    /// elsewhere (e.g. opened a dialog) is left alone.
+    /// </summary>
+    private static void GiveFocusBack(AutomationElement element, nint toolbar, nint focusBefore)
+    {
+        if (focusBefore == 0 || focusBefore == toolbar || Win32Controls.FocusedWindow(toolbar) != toolbar)
+            return;
+        try
+        {
+            element.Automation.FromHandle(focusBefore).Focus();
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or TimeoutException)
+        {
+            // The previously focused window went away or refuses focus; the click itself succeeded.
+        }
+    }
+
     private static ActionOutcome SetValue(AutomationElement element, string text)
     {
         if (element.Patterns.Value.PatternOrDefault is { } value)
@@ -162,6 +194,14 @@ internal static class UiaActions
         if (isTree && option.Contains('>'))
             return SelectTreePath(container, option.Split('>', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
 
+        // Plain Win32 combos (MFC/dialog resources): UIA's SelectionItem.Select sets the selection without sending
+        // CBN_SELCHANGE, so the application never learns of it (M10). Select the way a user would be seen instead.
+        var hwnd = container.Properties.NativeWindowHandle.ValueOrDefault;
+        if (container.Properties.FrameworkId.ValueOrDefault == "Win32"
+            && Win32Controls.ComboOptions(hwnd, ClassName(container)) is { } native
+            && IndexOf(native.Options, option) >= 0)
+            return SelectNativeComboItem(container, hwnd, native.Options, option);
+
         var expand = container.Patterns.ExpandCollapse.PatternOrDefault;
         var wasCollapsed = expand?.ExpandCollapseState.ValueOrDefault == ExpandCollapseState.Collapsed;
         try
@@ -185,17 +225,11 @@ internal static class UiaActions
                 return new ActionOutcome("uia.SelectionItemPattern", true, ValueAfter: CurrentValue(container) ?? match.Properties.Name.ValueOrDefault);
             }
 
-            var hwnd = container.Properties.NativeWindowHandle.ValueOrDefault;
             if (items.Length == 0 && Win32Controls.ComboOptions(hwnd, ClassName(container)) is { } combo)
             {
-                var index = IndexOf(combo.Options, option);
-                if (index < 0)
+                if (IndexOf(combo.Options, option) < 0)
                     throw OptionNotFound(container, option, combo.Options);
-                if (CurrentValue(container) == combo.Options[index])
-                    return new ActionOutcome("none", false, ValueAfter: combo.Options[index]);
-                if (!Win32Controls.SelectComboItem(hwnd, index))
-                    throw NotSupported(container, "changed through Win32 messages");
-                return new ActionOutcome("win32.CB_SETCURSEL+CBN_SELCHANGE", true, ValueAfter: CurrentValue(container) ?? combo.Options[index]);
+                return SelectNativeComboItem(container, hwnd, combo.Options, option);
             }
 
             if (items.Length == 0 && container.Patterns.Selection.PatternOrDefault is null && expand is null)
@@ -213,6 +247,16 @@ internal static class UiaActions
             if (wasCollapsed && expand!.ExpandCollapseState.ValueOrDefault != ExpandCollapseState.Collapsed)
                 expand.Collapse();
         }
+    }
+
+    private static ActionOutcome SelectNativeComboItem(AutomationElement container, nint hwnd, IReadOnlyList<string> options, string option)
+    {
+        var index = IndexOf(options, option);
+        if (CurrentValue(container) == options[index])
+            return new ActionOutcome("none", false, ValueAfter: options[index]);
+        if (!Win32Controls.SelectComboItem(hwnd, index))
+            throw NotSupported(container, "changed through Win32 messages");
+        return new ActionOutcome("win32.CB_SETCURSEL+CBN_SELCHANGE", true, ValueAfter: CurrentValue(container) ?? options[index]);
     }
 
     /// <summary>Sets a target state rather than flipping, so retries are harmless. Tri-state boxes may need two toggles.</summary>

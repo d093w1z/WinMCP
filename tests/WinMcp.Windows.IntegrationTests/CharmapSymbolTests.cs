@@ -86,7 +86,7 @@ public sealed class CharmapSymbolTests : IClassFixture<CharmapSession>, IDisposa
         Assert.Equal("IDC_SELECT", detail.ControlSymbol);
         Assert.NotNull(detail.Hwnd);
         Assert.Equal("Win32", detail.FrameworkId);
-        Assert.Equal(new SuggestedLocator("103", null, null, null, Unique: true), detail.Locator);
+        Assert.Equal(new SuggestedLocator(null, "IDC_SELECT", null, null, Unique: true), detail.Locator); // symbol over bare id (M10)
     }
 
     [Fact]

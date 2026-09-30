@@ -17,7 +17,9 @@ dotnet test --solution WinMcp.slnx                                   # everythin
 dotnet test --solution WinMcp.slnx --filter-not-trait "Category=Windows" --ignore-exit-code 8   # no GUI
 ```
 
-GUI tests (`Category=Windows`) launch `samples/WinMcp.TestApp` (and `charmap.exe`) and need an unlocked, interactive desktop. Don't use the mouse or keyboard while they run; a full run takes about 30 s.
+GUI tests (`Category=Windows`) launch `samples/WinMcp.TestApp`, `samples/WinMcp.MfcTestApp` and `charmap.exe` and need an unlocked, interactive desktop. Don't use the mouse or keyboard while they run; a full run takes about a minute.
+
+The MFC test app is C++ and not part of `dotnet build`; build it with `.\scripts\build-mfc.ps1` (needs Visual Studio with "Desktop development with C++" and the MFC component). Its tests are skipped until it is built.
 
 - Launched apps are placed in a Windows job and close automatically when the test process ends, even if a run is interrupted or crashes.
 - A run exceeding 5 minutes aborts itself with a message (`WINMCP_TEST_TIMEOUT_MINUTES` to change).
@@ -65,8 +67,9 @@ A running client keeps its server process (and build) until you reconnect; there
 | `src/WinMcp.Windows` | Win32 / UI Automation implementations |
 | `src/WinMcp.Server` | MCP server executable (stdio) |
 | `samples/WinMcp.TestApp` | Deterministic WinForms target app for tests |
+| `samples/WinMcp.MfcTestApp` | The same app in C++/MFC (plus a `--frame` toolbar/status-bar mode); built by `scripts/build-mfc.ps1` |
 | `tests/WinMcp.Core.Tests` | Unit tests |
 | `tests/WinMcp.Server.Tests` | MCP client ↔ server in-process with a fake desktop |
-| `tests/WinMcp.Windows.IntegrationTests` | Real UI Automation against the TestApp |
+| `tests/WinMcp.Windows.IntegrationTests` | Real UI Automation against the test apps (shared scenarios run on WinForms and MFC) |
 | `tests/WinMcp.E2ETests` | Spawns the server over stdio and talks MCP to it |
 | `spikes/` | Throwaway experiments, not part of the build |

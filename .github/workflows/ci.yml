@@ -40,6 +40,12 @@ jobs:
       - name: Build
         run: dotnet build WinMcp.slnx -c Release
 
+      # The MFC test app needs VS C++ with MFC; when the runner lacks it the MFC tests skip.
+      - name: Build MFC test app
+        continue-on-error: true
+        shell: pwsh
+        run: ./scripts/build-mfc.ps1
+
       - name: Test (GUI)
         shell: pwsh
         run: |

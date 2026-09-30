@@ -14,7 +14,7 @@ All results are JSON with `snake_case` names, returned as `structuredContent` (p
 | Element ref | `e7` from `get_ui_tree` / `find_elements` / `inspect_element` | The server session; the same element always gets the same ref. A ref to a removed element returns `ELEMENT_STALE`; refs never point to a different element |
 | Locator | criteria such as `automation_id`, `name`, `control_type`, `control_symbol` (with `hwnd`) | Durable across sessions; must match **exactly one** element for actions (`AMBIGUOUS_MATCH` lists candidate refs otherwise) |
 
-Element-taking tools accept either `element` (a ref), or `hwnd` plus criteria. `inspect_element` returns a suggested durable `locator` for each element, checked to be unique.
+Element-taking tools accept either `element` (a ref), or `hwnd` plus criteria. `inspect_element` returns a suggested durable `locator` for each element, checked to be unique — the `resource.h` symbol when one is configured, else the automation id, else name + control type.
 
 ## Observe tools
 
@@ -63,7 +63,7 @@ All control tools refuse disabled elements (`ELEMENT_DISABLED`) — Windows' own
 |------|------|-------|
 | `invoke` | Click: button press, menu item, check-box toggle, item select, expand/collapse | Destructive annotation. Win32 push buttons are clicked with `BM_CLICK` (so a dialog they open stays operable); if the handler is still running after ~0.75 s (e.g. a modal dialog is open), returns success with a `warning` — don't click again |
 | `set_value` | Replace a field's text (`value`) | Password fields refused; read-only values refused; `value_after` is read back |
-| `select_option` | Select an item by text (`option`) in a combo box, list, tab control or tree — target the container | Opens a collapsed combo only as long as needed and closes it again. Trees: give a path, `"Documents > Reports > Q1.txt"`, to expand the way there. Unknown option → `OPTION_NOT_FOUND` with `available` |
+| `select_option` | Select an item by text (`option`) in a combo box, list, tab control or tree — target the container | Opens a collapsed combo only as long as needed and closes it again; plain Win32 combos (MFC, dialogs) are set with `CB_SETCURSEL` + `CBN_SELCHANGE` so the application is notified. Trees: give a path, `"Documents > Reports > Q1.txt"`, to expand the way there. Unknown option → `OPTION_NOT_FOUND` with `available` |
 | `set_toggle` | Set a check box to `state` `on`/`off` | Target state, so repeating is harmless (`changed: false`) |
 | `set_expanded` | Expand or collapse a tree node, menu or combo box (`state` `expanded`/`collapsed`) | Target state. Children of collapsed tree nodes aren't in the UI tree until expanded |
 | `send_keys` | Type `text` literally, or `keys` as chords: `"Ctrl+A, Backspace, Enter"` | Optional `element` to focus first. The window is brought to the foreground and input stops with `FOCUS_FAILED` if anything else takes it. Windows-key and window-switching chords refused; password fields refused |

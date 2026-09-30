@@ -9,7 +9,8 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 - **Modal dialogs opened from inside UI Automation calls block UIA for the whole application** (WinForms menu items, observed in M9). WinMCP falls back to Win32 controls meanwhile (see tools.md); the first call after such a click takes ~3 s (the UIA timeout) before falling back. Push buttons avoid the problem entirely: they're clicked with `BM_CLICK`.
 - **Collapsed tree nodes hide their children** from UIA; use `set_expanded` or a `select_option` path.
 - **Collapsed combo boxes expose no items** to UIA. WinMCP reads options with Win32 messages instead (`inspect_element`), and opens/closes the combo only while selecting. Owner-drawn combos without stored strings have no readable options; at most 200 options are returned (`option_count` gives the total).
-- **Win32 fallbacks exist only where they reach the app's handlers**: `BM_CLICK` (posted), `WM_SETTEXT`, and `CB_SETCURSEL` + an explicit `CBN_SELCHANGE` (without it the app never sees the change).
+- **Win32 fallbacks exist only where they reach the app's handlers**: `BM_CLICK` (sent with a short timeout), `WM_SETTEXT`, and `CB_SETCURSEL` + an explicit `CBN_SELCHANGE` (without it the app never sees the change). Plain Win32 combo boxes (MFC, dialog resources) are always selected this way, because UI Automation's own selection doesn't notify the application (M10).
+- **Toolbar buttons** (comctl32) are clicked through UI Automation, which leaves keyboard focus on the toolbar; WinMCP puts focus back afterwards, since MFC frames won't open their menus while the toolbar has it (M10).
 
 ## Large windows
 
@@ -22,7 +23,7 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 ## Hung and busy applications
 
 - UI Automation calls time out after **3 s** per call and 10 s per tool call; a stuck call's worker thread is abandoned so the server stays usable. Windows itself flags a window as not responding only after ~5 s, so `inspect_window.responding` lags.
-- A click whose handler blocks (long work, a modal dialog) is reported as success with a `warning` after ~3 s. The dialog is visible through `list_windows` / `inspect_window.owned_windows`; driving dialogs is planned for M9.
+- A click whose handler blocks (long work, a modal dialog) is reported as success with a `warning` (after 0.75 s for push buttons, ~3 s otherwise). A dialog it opened is visible through `list_windows` / `inspect_window.owned_windows` and can be operated by its own `hwnd`.
 - Screenshots of busy windows time out after 5 s (`PrintWindow` has to be answered by the application).
 
 ## Keyboard input (`send_keys`)
@@ -46,7 +47,7 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 
 ## Frameworks
 
-- Verified: WinForms, classic Win32 dialogs. MFC is expected to behave like Win32 for standard controls (planned verification: M10/M11 with an MFC test app). WPF, WinUI, Qt and Chromium/Electron apps work to the extent their UIA providers do; they have not been tested.
+- Verified: WinForms, classic Win32 dialogs, and MFC (dialog app with standard and common controls; CFrameWnd with toolbar, status bar and view — `samples/WinMcp.MfcTestApp`). MFC-specific knowledge (runtime classes, dialog templates) is not used yet (M11); a CView's own drawing is opaque like any custom-drawn control. WPF, WinUI, Qt and Chromium/Electron apps work to the extent their UIA providers do; they have not been tested.
 
 ## Not implemented (by design, for now)
 

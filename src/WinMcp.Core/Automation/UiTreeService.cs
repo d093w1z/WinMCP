@@ -376,11 +376,12 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
     /// </summary>
     private SuggestedLocator SuggestLocator(Scope scope, RawElement target, string? symbol)
     {
+        // A symbol beats the numeric automation id it was derived from: it says what the control is and survives renumbering.
         var candidates = new List<SuggestedLocator>();
-        if (target.AutomationId.Length > 0)
-            candidates.Add(new SuggestedLocator(target.AutomationId, null, null, null, false));
         if (symbol is not null)
             candidates.Add(new SuggestedLocator(null, symbol, null, null, false));
+        if (target.AutomationId.Length > 0)
+            candidates.Add(new SuggestedLocator(target.AutomationId, null, null, null, false));
         if (target.Name.Length > 0)
             candidates.Add(new SuggestedLocator(null, null, target.Name, target.ControlType, false));
         if (target.AutomationId.Length > 0)
