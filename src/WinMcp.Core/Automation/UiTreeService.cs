@@ -1,6 +1,8 @@
 using System.Globalization;
 using WinMcp.Core.Desktop;
 using WinMcp.Core.Errors;
+using WinMcp.Core.Mfc;
+using WinMcp.Core.Native;
 using WinMcp.Core.Symbols;
 
 namespace WinMcp.Core.Automation;
@@ -9,7 +11,8 @@ namespace WinMcp.Core.Automation;
 /// Backs <c>get_ui_tree</c>, <c>find_elements</c> and <c>inspect_element</c>: window gatekeeping, normalization,
 /// refs, limits, locator resolution and <c>resource.h</c> symbols.
 /// </summary>
-public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation, ElementRegistry registry, SymbolProvider symbols)
+/// <param name="native">Framework detection (M11): MFC apps get MFC's standard symbols and <c>mfc_class_guess</c>.</param>
+public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation, ElementRegistry registry, SymbolProvider symbols, NativeAppInfo? native = null)
 {
     public const int DefaultMaxDepth = 10;
     public const int DefaultMaxNodes = 300;
@@ -19,7 +22,8 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
 
     /// <summary>The window being worked on, its normalized tree, and the subtree root the caller asked for.</summary>
     /// <param name="Source">Null for UI Automation; <see cref="Win32Source"/> when built from child windows.</param>
-    private sealed record Scope(WindowDetails Window, RawElement Tree, RawElement Root, SymbolTable? Symbols, string? Source)
+    /// <param name="Mfc">The window's application uses MFC.</param>
+    private sealed record Scope(WindowDetails Window, RawElement Tree, RawElement Root, SymbolTable? Symbols, string? Source, bool Mfc)
     {
         public WindowHandle Handle => Window.Window.Hwnd;
     }
@@ -97,8 +101,10 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
         var labeledBy = extras.LabeledByRuntimeId is { } labelId && scope.Tree.DescendantsAndSelf().FirstOrDefault(e => e.RuntimeId == labelId) is { } label
             ? Ref(scope, label)
             : null;
-        var controlId = extras.ControlId ?? ParseId(target.AutomationId);
-        var symbol = controlId is { } id && scope.Symbols is { } table ? table.LookupControl(id) : SymbolMatch.None;
+        // Symbols only where UIA exposes the control ID as automation id (dialog controls, menu commands): control IDs
+        // are unique among siblings only, so an ID inside another control (a property grid's header is 1) isn't IDOK (M11).
+        var symbol = SymbolFor(scope, target);
+        var mfcClass = scope.Mfc && target.NativeWindowHandle != 0 ? MfcClassGuess.Guess(target.ClassName, extras.ControlId, target.NativeWindowHandle == scope.Handle.Value) : null;
         var (value, states) = Describe(target);
 
         return new ElementDetail(
@@ -126,7 +132,8 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
             parent,
             labeledBy,
             NullIfEmpty(extras.HelpText),
-            SuggestLocator(scope, target, symbol.Symbol));
+            SuggestLocator(scope, target, symbol.Symbol),
+            mfcClass);
     }
 
     /// <summary>The element an action targets, freshly fetched, with the window it belongs to.</summary>
@@ -291,16 +298,17 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
 
         var (fetched, source) = await FetchAsync(handle, cancellationToken);
         var tree = TreeNormalizer.Normalize(fetched);
-        var table = symbols.ForProcess(window.Window.Process.Name);
+        var mfc = native?.IsMfc(window) ?? false;
+        var table = symbols.ForProcess(window.Window.Process.Name, mfc);
         if (key is null)
-            return new Scope(window, tree, tree, table, source);
+            return new Scope(window, tree, tree, table, source, mfc);
 
         var root = tree.DescendantsAndSelf().FirstOrDefault(e => e.RuntimeId == key.Value.RuntimeId)
             ?? throw new WinMcpException(new WinMcpError(
                 WinMcpErrorCode.ElementStale,
                 $"Element '{element}' no longer exists in window {handle}.",
                 Hint: "The UI changed. Call get_ui_tree or find_elements again for current refs."));
-        return new Scope(window, tree, root, table, source);
+        return new Scope(window, tree, root, table, source, mfc);
     }
 
     public const string Win32Source = "win32";
@@ -359,7 +367,9 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
                     ? "The configured resource.h could not be read."
                     : $"The user can start WinMCP with --symbols {process}=<path-to-resource.h>. Use automation_id (the numeric control ID) meanwhile.");
         return table.ControlId(controlSymbol)
-            ?? throw Invalid($"'{controlSymbol}' is not a control symbol in the resource.h configured for '{process}'.");
+            ?? throw Invalid(symbols.HasSymbols(process)
+                ? $"'{controlSymbol}' is not a control or command symbol in the resource.h configured for '{process}'."
+                : $"'{controlSymbol}' is not one of MFC's standard IDs, and no resource.h is configured for '{process}'.");
     }
 
     private static bool Matches(RawElement e, ElementLocator locator, int? symbolId) =>
@@ -399,7 +409,13 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
     private string Ref(Scope scope, RawElement e) => registry.GetOrAdd(new ElementKey(scope.Handle, e.RuntimeId));
 
     private static SymbolMatch SymbolFor(Scope scope, RawElement e) =>
-        scope.Symbols is { } table && ParseId(e.AutomationId) is { } id ? table.LookupControl(id) : SymbolMatch.None;
+        ParseId(e.AutomationId) is { } id ? SymbolFor(scope, e, id) : SymbolMatch.None;
+
+    /// <summary>Menu items carry command IDs (<c>ID_*</c>), everything else control IDs.</summary>
+    private static SymbolMatch SymbolFor(Scope scope, RawElement e, int id) =>
+        scope.Symbols is not { } table ? SymbolMatch.None
+        : e.ControlType == "MenuItem" ? table.LookupCommand(id)
+        : table.LookupControl(id);
 
     /// <returns>Root-to-target chain of elements, or null when the target isn't in the tree.</returns>
     private static List<RawElement>? PathTo(RawElement node, string runtimeId)

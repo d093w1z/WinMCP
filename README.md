@@ -21,6 +21,8 @@ GUI tests (`Category=Windows`) launch `samples/WinMcp.TestApp`, `samples/WinMcp.
 
 The MFC test app is C++ and not part of `dotnet build`; build it with `.\scripts\build-mfc.ps1` (needs Visual Studio with "Desktop development with C++" and the MFC component). Its tests are skipped until it is built.
 
+MFC applications get extra facts without configuration (M11): `inspect_window` reports the framework with evidence (shared/static MFC, version) and the dialog templates windows were created from; outlines show MFC's standard IDs (`AFX_IDW_TOOLBAR`, `ID_APP_EXIT`); `inspect_element` guesses the MFC class. See [docs/mfc-investigation.md](docs/mfc-investigation.md).
+
 - Launched apps are placed in a Windows job and close automatically when the test process ends, even if a run is interrupted or crashes.
 - A run exceeding 5 minutes aborts itself with a message (`WINMCP_TEST_TIMEOUT_MINUTES` to change).
 - To see where a run is stuck, capture a hang dump (GUI test projects only; other projects reject the option):
@@ -67,9 +69,9 @@ A running client keeps its server process (and build) until you reconnect; there
 | `src/WinMcp.Windows` | Win32 / UI Automation implementations |
 | `src/WinMcp.Server` | MCP server executable (stdio) |
 | `samples/WinMcp.TestApp` | Deterministic WinForms target app for tests |
-| `samples/WinMcp.MfcTestApp` | The same app in C++/MFC (plus a `--frame` toolbar/status-bar mode); built by `scripts/build-mfc.ps1` |
+| `samples/WinMcp.MfcTestApp` | The same app in C++/MFC, plus `--frame` (toolbar/status bar/view) and `--features` (Feature Pack controls) modes; `scripts/build-mfc.ps1` builds shared- and static-MFC variants |
 | `tests/WinMcp.Core.Tests` | Unit tests |
 | `tests/WinMcp.Server.Tests` | MCP client ↔ server in-process with a fake desktop |
 | `tests/WinMcp.Windows.IntegrationTests` | Real UI Automation against the test apps (shared scenarios run on WinForms and MFC) |
 | `tests/WinMcp.E2ETests` | Spawns the server over stdio and talks MCP to it |
-| `spikes/` | Throwaway experiments, not part of the build |
+| `spikes/` | Throwaway experiments, not part of the build (M0 UIA spike; M11 in-process MFC runtime-class spike) |

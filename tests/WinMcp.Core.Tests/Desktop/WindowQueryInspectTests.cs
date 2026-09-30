@@ -39,6 +39,37 @@ public sealed class WindowQueryInspectTests
     }
 
     [Fact]
+    public void Without_native_facts_the_framework_comes_from_class_names_and_no_dialogs_are_matched()
+    {
+        var (query, desktop) = Create();
+        desktop.Details[Main.Hwnd] = FakeDesktop.DefaultDetails(Main);
+
+        var result = query.Inspect("hwnd:0x00000010");
+
+        Assert.Equal(new[] { $"window class '{Main.ClassName}'" }, result.Framework!.Evidence);
+        Assert.Empty(result.DialogResources!);
+    }
+
+    [Fact]
+    public void With_native_facts_reports_MFC_and_the_dialog_template()
+    {
+        const string exe = @"C:\Apps\Legacy.exe";
+        var dialog = FakeDesktop.Window("Legacy", "Settings", pid: 5, hwnd: 0x50, className: "#32770", path: exe);
+        var desktop = new FakeDesktop(dialog);
+        desktop.Children[dialog.Hwnd] = [FakeDesktop.Child(0x51, 0x50, "Edit", "", 1000), FakeDesktop.Child(0x52, 0x50, "Button", "OK", 1)];
+        var native = new FakeNativeProcesses();
+        native.Modules[5] = [FakeNativeProcesses.Module(exe), FakeNativeProcesses.Module(@"C:\Windows\System32\mfc140u.dll")];
+        native.Dialogs[exe] = [new(exe, 102, null, DialogTemplateBuilder.Extended("Settings", (1000, (ushort)0x81, ""), (1, (ushort)0x80, "OK")))];
+        var options = WinMcpOptions.Parse(["--allow", "Legacy"]);
+        var query = new WindowQuery(desktop, new TargetPolicy(options, 999), new Core.Native.NativeAppInfo(native, new Core.Symbols.SymbolProvider(options)));
+
+        var result = query.Inspect("hwnd:0x00000050");
+
+        Assert.Equal(("mfc", "mfc", "shared"), (result.FrameworkHint, result.Framework!.Name, result.Framework.Linkage));
+        Assert.Equal(102, Assert.Single(result.DialogResources!).ResourceId);
+    }
+
+    [Fact]
     public void Owned_windows_include_only_shown_allowlisted_windows()
     {
         var (query, _) = Create();

@@ -40,13 +40,23 @@
 #define ID_FRAME_COUNT                  32775
 #define ID_INDICATOR_COUNT              32776
 
+// Features dialog (--features): owner-drawn and MFC Feature Pack controls, for measuring UI Automation coverage
+#define IDD_FEATURES                    104
+#define IDC_OWNERDRAW_BUTTON            1301
+#define IDC_MFC_BUTTON                  1302
+#define IDC_MFC_COLOR                   1303
+#define IDC_MFC_EDITBROWSE              1304
+#define IDC_MFC_MASKED                  1305
+#define IDC_MFC_PROPGRID                1306
+#define IDC_FEATURES_STATUS             1307
+
 // Next default values for new objects
 //
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        104
+#define _APS_NEXT_RESOURCE_VALUE        105
 #define _APS_NEXT_COMMAND_VALUE         32777
-#define _APS_NEXT_CONTROL_VALUE         1017
+#define _APS_NEXT_CONTROL_VALUE         1308
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

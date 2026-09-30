@@ -64,7 +64,7 @@ public sealed unsafe class Win32Desktop : IDesktop
 
     public bool AnswersMessages(WindowHandle window) => Win32Controls.Ping((nint)window.Value);
 
-    public IReadOnlyList<ChildWindow> GetChildWindows(WindowHandle window)
+    public IReadOnlyList<ChildWindow> GetChildWindows(WindowHandle window, bool includeHidden = false)
     {
         using var dpi = DpiScope.Enter();
         var top = (HWND)(nint)window.Value;
@@ -78,7 +78,8 @@ public sealed unsafe class Win32Desktop : IDesktop
         var children = new List<ChildWindow>(handles.Count);
         foreach (var hwnd in handles)
         {
-            if (!PInvoke.IsWindowVisible(hwnd))
+            var visible = PInvoke.IsWindowVisible(hwnd);
+            if (!visible && !includeHidden)
                 continue;
             var className = ReadClassName(hwnd);
             var style = (uint)PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE);
@@ -91,7 +92,7 @@ public sealed unsafe class Win32Desktop : IDesktop
                 Win32Controls.IsPasswordEdit(hwnd, className) ? "" : Win32Controls.ReadText((nint)hwnd.Value),
                 PInvoke.GetDlgCtrlID(hwnd),
                 style,
-                Visible: true,
+                visible,
                 PInvoke.IsWindowEnabled(hwnd),
                 new Rect(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top),
                 Win32Controls.ReadCheck((nint)hwnd.Value, className, style)));

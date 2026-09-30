@@ -13,7 +13,8 @@ public interface IDesktop
     /// All visible descendant windows, in enumeration (z/tab) order, using only messages that give up on a hung
     /// target. Used when UI Automation can't answer for a window.
     /// </summary>
-    IReadOnlyList<ChildWindow> GetChildWindows(WindowHandle window);
+    /// <param name="includeHidden">Also hidden windows (for dialog-template matching: a hidden control still exists).</param>
+    IReadOnlyList<ChildWindow> GetChildWindows(WindowHandle window, bool includeHidden = false);
 
     /// <summary>
     /// Whether the window's thread is processing messages right now (it answers a WM_NULL within a short timeout).

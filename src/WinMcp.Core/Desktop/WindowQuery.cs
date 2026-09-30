@@ -1,4 +1,5 @@
 using WinMcp.Core.Errors;
+using WinMcp.Core.Native;
 using WinMcp.Core.Policy;
 
 namespace WinMcp.Core.Desktop;
@@ -13,7 +14,8 @@ public sealed record WindowFilter(string? ProcessName = null, string? TitleConta
 /// </param>
 public sealed record WindowList(IReadOnlyList<WindowInfo> Windows, int ExcludedCount, string? Hint);
 
-public sealed class WindowQuery(IDesktop desktop, TargetPolicy policy)
+/// <param name="native">Framework and dialog-template facts (M11); without it, inspection uses window class names only.</param>
+public sealed class WindowQuery(IDesktop desktop, TargetPolicy policy, NativeAppInfo? native = null)
 {
     public WindowList List(WindowFilter filter)
     {
@@ -60,15 +62,20 @@ public sealed class WindowQuery(IDesktop desktop, TargetPolicy policy)
             .Take(MaxChildClassesReported)
             .ToDictionary(g => g.Key, g => g.Count());
 
+        var framework = native?.Framework(details)
+                        ?? FrameworkDetection.Detect(details.Window.ClassName, details.ChildClassNames, modules: null, _ => null);
+
         return new WindowInspection(
             details.Window,
             details.Responding,
             details.ThreadId,
             WindowStyles.DecodeStyle(details.Style),
             WindowStyles.DecodeExStyle(details.ExStyle),
-            FrameworkHint.Guess(details.Window.ClassName, details.ChildClassNames),
+            framework?.Name,
             owned,
-            new ChildWindowSummary(details.ChildClassNames.Count, byClass));
+            new ChildWindowSummary(details.ChildClassNames.Count, byClass),
+            framework,
+            native?.Dialogs(details, desktop.GetChildWindows(handle, includeHidden: true)) ?? []);
     }
 
     /// <summary>Whether an allowlisted window is processing messages right now.</summary>

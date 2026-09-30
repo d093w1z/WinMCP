@@ -119,6 +119,41 @@ public sealed class SymbolTableTests
         Assert.Null(table.ControlId("IDD_MFCTESTAPP_DIALOG")); // not a control
         Assert.Null(table.ControlId("IDC_MISSING"));
     }
+
+    [Fact]
+    public void Commands_and_dialogs_have_their_own_lookups()
+    {
+        var table = Table(ResourceSymbolParserTests.VisualStudioHeader);
+
+        Assert.Equal("ID_FILE_EXPORT", table.LookupCommand(32771).Symbol);
+        Assert.Equal("IDD_MFCTESTAPP_DIALOG", table.LookupDialog(102).Symbol);
+        Assert.Equal(SymbolMatch.None, table.LookupControl(32771));
+        Assert.Equal(32771, table.ControlId("ID_FILE_EXPORT")); // menu items carry command IDs as automation id
+    }
+
+    [Fact]
+    public void MFC_standard_ids_are_known_only_for_MFC_and_the_applications_names_win()
+    {
+        var header = """
+            #define ID_MY_EXIT      0xE141
+            #define IDC_EDIT_NAME   1000
+            """;
+
+        var plain = new SymbolTable(ResourceSymbolParser.Parse(header));
+        var mfc = new SymbolTable(ResourceSymbolParser.Parse(header), mfcStandardIds: true);
+
+        Assert.Equal(SymbolMatch.None, plain.LookupControl(0xE801));
+        Assert.Equal("AFX_IDW_STATUS_BAR", mfc.LookupControl(0xE801).Symbol);
+        Assert.Equal("AFX_IDW_PANE_FIRST", mfc.LookupControl(0xE900).Symbol);
+        Assert.Equal("ID_FILE_NEW", mfc.LookupCommand(0xE100).Symbol);
+        Assert.Equal("ID_MY_EXIT", mfc.LookupCommand(0xE141).Symbol); // not ID_APP_EXIT
+        Assert.Equal(0xE800, mfc.ControlId("AFX_IDW_TOOLBAR"));
+        Assert.Equal("IDC_EDIT_NAME", mfc.LookupControl(1000).Symbol);
+    }
+
+    [Fact]
+    public void Standard_MFC_table_has_no_application_symbols() =>
+        Assert.Equal(("ID_APP_EXIT", null), (SymbolTable.Standard(mfcStandardIds: true).LookupCommand(0xE141).Symbol, SymbolTable.Standard(true).LookupControl(1000).Symbol));
 }
 
 public sealed class SymbolProviderTests : IDisposable

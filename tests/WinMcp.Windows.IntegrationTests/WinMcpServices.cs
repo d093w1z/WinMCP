@@ -1,6 +1,7 @@
 using WinMcp.Core.Audit;
 using WinMcp.Core.Automation;
 using WinMcp.Core.Desktop;
+using WinMcp.Core.Native;
 using WinMcp.Core.Policy;
 using WinMcp.Core.Symbols;
 using WinMcp.Windows.Automation;
@@ -15,8 +16,10 @@ internal sealed class WinMcpServices : IDisposable
         var options = WinMcpOptions.Parse(serverArguments.Length > 0 ? serverArguments : ["--allow", "WinMcp.TestApp"]);
         Dispatcher = new AutomationDispatcher(uiaTimeout: TimeSpan.FromSeconds(3), hardTimeout: TimeSpan.FromSeconds(10));
         Automation = new UiaAutomation(Dispatcher);
-        Windows = new WindowQuery(new Win32Desktop(), new TargetPolicy(options, Environment.ProcessId));
-        Tree = new UiTreeService(Windows, Automation, new ElementRegistry(), new SymbolProvider(options));
+        var symbols = new SymbolProvider(options);
+        Native = new NativeAppInfo(new Win32NativeProcesses(), symbols);
+        Windows = new WindowQuery(new Win32Desktop(), new TargetPolicy(options, Environment.ProcessId), Native);
+        Tree = new UiTreeService(Windows, Automation, new ElementRegistry(), symbols, Native);
         Interaction = new InteractionService(Tree, Automation, new Win32Keyboard(), Windows, options, new JsonlAuditLog(options.AuditDirectory));
         AuditDirectory = options.AuditDirectory;
     }
@@ -24,6 +27,8 @@ internal sealed class WinMcpServices : IDisposable
     /// <summary>Control-mode services allowlisting the TestApp, auditing to a fresh temp directory.</summary>
     public static WinMcpServices Control() =>
         new("--mode", "control", "--allow", "WinMcp.TestApp", "--audit-dir", Path.Combine(Path.GetTempPath(), $"winmcp-audit-{Guid.NewGuid():N}"));
+
+    public NativeAppInfo Native { get; }
 
     public InteractionService Interaction { get; }
 

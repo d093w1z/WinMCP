@@ -12,6 +12,7 @@
 #include <afxext.h>
 #include <afxdialogex.h>
 #include <afxcmn.h>
+#include <afxcontrolbars.h> // MFC Feature Pack controls (--features)
 
 #include <memory>
 #include <string>

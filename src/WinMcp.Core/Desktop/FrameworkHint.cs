@@ -19,17 +19,21 @@ public static class FrameworkHint
         (c => c.StartsWith("SunAwt", StringComparison.Ordinal), "java-awt"),
     ];
 
-    public static string? Guess(string topLevelClass, IEnumerable<string> childClasses)
+    public static string? Guess(string topLevelClass, IEnumerable<string> childClasses) =>
+        GuessWithEvidence(topLevelClass, childClasses)?.Framework;
+
+    /// <returns>The framework and the window class that gave it away; null when unrecognized.</returns>
+    public static (string Framework, string ClassName)? GuessWithEvidence(string topLevelClass, IEnumerable<string> childClasses)
     {
         if (Match(topLevelClass) is { } top)
-            return top;
+            return (top, topLevelClass);
         foreach (var child in childClasses)
         {
             if (Match(child) is { } fromChild)
-                return fromChild;
+                return (fromChild, child);
         }
         // A plain dialog class with no framework-specific children: classic Win32 (or an MFC CDialog).
-        return topLevelClass == "#32770" ? "win32-dialog" : null;
+        return topLevelClass == "#32770" ? ("win32-dialog", topLevelClass) : null;
     }
 
     private static string? Match(string className)

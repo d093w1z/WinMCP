@@ -15,8 +15,8 @@ internal sealed class FakeDesktop(params WindowInfo[] windows) : IDesktop
     /// <summary>Child windows per top-level window, for the Win32 fallback tree.</summary>
     public Dictionary<WindowHandle, List<ChildWindow>> Children { get; } = [];
 
-    public IReadOnlyList<ChildWindow> GetChildWindows(WindowHandle window) =>
-        Children.TryGetValue(window, out var children) ? children : [];
+    public IReadOnlyList<ChildWindow> GetChildWindows(WindowHandle window, bool includeHidden = false) =>
+        Children.TryGetValue(window, out var children) ? children.Where(c => includeHidden || c.Visible).ToList() : [];
 
     /// <summary>Mirrors <see cref="WindowDetails.Responding"/> unless overridden per window.</summary>
     public HashSet<WindowHandle> NotAnsweringMessages { get; } = [];

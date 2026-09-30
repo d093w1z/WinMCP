@@ -2,6 +2,7 @@
 #include "MainDlg.h"
 #include "CanvasWnd.h"
 #include "MainFrame.h"
+#include "FeaturesDlg.h"
 #include "resource.h"
 
 CTestApp theApp;
@@ -14,7 +15,7 @@ BOOL CTestApp::InitInstance()
 
     if (!ParseArguments())
     {
-        ::MessageBoxW(nullptr, L"Usage: WinMcp.MfcTestApp.exe [--frame] [--position x,y]", L"WinMCP MFC Test App", MB_OK | MB_ICONERROR);
+        ::MessageBoxW(nullptr, L"Usage: WinMcp.MfcTestApp.exe [--frame | --features] [--position x,y]", L"WinMCP MFC Test App", MB_OK | MB_ICONERROR);
         return FALSE;
     }
 
@@ -29,6 +30,14 @@ BOOL CTestApp::InitInstance()
         frame->ShowWindow(SW_SHOW);
         frame->UpdateWindow();
         return TRUE; // run the message loop
+    }
+
+    if (Features)
+    {
+        CFeaturesDlg features;
+        m_pMainWnd = &features;
+        features.DoModal();
+        return FALSE;
     }
 
     CCanvasWnd::RegisterWindowClass();
@@ -47,6 +56,10 @@ bool CTestApp::ParseArguments()
         if (argument == L"--frame")
         {
             Frame = true;
+        }
+        else if (argument == L"--features")
+        {
+            Features = true;
         }
         else if (argument == L"--position" && i + 1 < __argc)
         {

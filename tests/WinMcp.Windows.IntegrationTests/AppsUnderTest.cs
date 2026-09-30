@@ -78,9 +78,9 @@ public sealed class MfcAppUnderTest : IAppUnderTest, IDisposable
     public MfcAppUnderTest() => (_process, Handle, SkipReason) = Launch("", "WinMCP MFC Test App");
 
     /// <summary>Starts the MFC test app and waits for its main window; returns a skip reason instead when it isn't built.</summary>
-    internal static (Process? Process, WindowHandle Handle, string? SkipReason) Launch(string arguments, string title)
+    internal static (Process? Process, WindowHandle Handle, string? SkipReason) Launch(string arguments, string title, string? exePath = null)
     {
-        var path = Path.GetFullPath(ExePath);
+        var path = Path.GetFullPath(exePath ?? ExePath);
         if (!File.Exists(path))
             return (null, default, $"MFC test app not built ({path}). Run scripts/build-mfc.ps1 or set WINMCP_MFCTESTAPP_PATH.");
 
@@ -97,6 +97,9 @@ public sealed class MfcAppUnderTest : IAppUnderTest, IDisposable
 
     public static string ExePath =>
         Environment.GetEnvironmentVariable("WINMCP_MFCTESTAPP_PATH") is { Length: > 0 } overridePath ? overridePath : BuiltExePath;
+
+    /// <summary>The statically linked MFC variant (scripts/build-mfc.ps1 builds both).</summary>
+    public static string StaticExePath => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(BuiltExePath)!, @"..\ReleaseStatic\WinMcp.MfcTestApp.exe"));
 
     /// <summary>The app's resource.h in the source tree (the build output is bin\x64\Release below it).</summary>
     public static string ResourceHeader => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(BuiltExePath)!, @"..\..\..\resource.h"));

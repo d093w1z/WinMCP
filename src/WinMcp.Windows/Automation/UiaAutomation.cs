@@ -52,6 +52,7 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
             // Re-checked live: the element may have been disabled since the caller's check (M0: UIA acts on it anyway).
             if (!live.Properties.IsEnabled.ValueOrDefault)
                 throw new WinMcpException(new WinMcpError(WinMcpErrorCode.ElementDisabled, "The element became disabled."));
+            UiaActions.ActivateForNativeMenu(live, action, element.Window);
             return UiaActions.Perform(automation, live, action);
         }), cancellationToken);
 
@@ -69,6 +70,7 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
             AutomationElementMode = AutomationElementMode.Full,
         };
         request.Add(automation.PropertyLibrary.Element.RuntimeId);
+        request.Add(automation.PropertyLibrary.Element.Name); // for elements without a runtime id (IdentityOf)
 
         // Get the window element before activating the cache request: with a subtree request active, FlaUI turns
         // FromHandle into ElementFromHandleBuildCache, which UIA rejects for subtree scope (COMException, found in M5).
@@ -77,19 +79,21 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
         {
             var root = windowElement.FindFirst(TreeScope.Element, TrueCondition.Default)
                 ?? throw WindowClosed(element.Window);
-            return Find(root) ?? throw new WinMcpException(new WinMcpError(
+            return Find(root, "", 0) ?? throw new WinMcpException(new WinMcpError(
                 WinMcpErrorCode.ElementStale,
                 "The element no longer exists.",
                 Hint: "The UI changed. Call get_ui_tree or find_elements again for current refs."));
         }
 
-        AutomationElement? Find(AutomationElement node)
+        AutomationElement? Find(AutomationElement node, string parentId, int index)
         {
-            if (string.Join('.', node.Properties.RuntimeId.ValueOrDefault ?? []) == element.RuntimeId)
+            var identity = IdentityOf(node.Properties.RuntimeId.ValueOrDefault, parentId, index, node.Properties.Name.ValueOrDefault ?? "");
+            if (identity == element.RuntimeId)
                 return node;
+            var i = 0;
             foreach (var child in node.CachedChildren)
             {
-                if (Find(child) is { } found)
+                if (Find(child, identity, i++) is { } found)
                     return found;
             }
             return null;
@@ -118,7 +122,7 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
         {
             var root = windowElement.FindFirst(TreeScope.Element, TrueCondition.Default)
                 ?? throw WindowClosed(window);
-            return Build(root, ids);
+            return Build(root, ids, parentId: "", index: 0);
         }
     }
 
@@ -146,15 +150,24 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
         ];
     }
 
+    /// <summary>
+    /// Identity of an element within its window: the UIA runtime id, or — for elements that report none, like Win32
+    /// menu bar items of a window that isn't active (M11) — the parent's id plus position and name. Without this,
+    /// all such elements shared one key (and one ref). Tree fetch and live lookup must compute it the same way.
+    /// </summary>
+    internal static string IdentityOf(int[]? runtimeId, string parentId, int index, string name) =>
+        runtimeId is { Length: > 0 } ? string.Join('.', runtimeId) : $"{parentId}~{index}~{name}";
+
     /// <summary>Reads cached values directly; an unsupported pattern property simply isn't available (→ null).</summary>
-    private static RawElement Build(AutomationElement e, TreeProperties ids)
+    private static RawElement Build(AutomationElement e, TreeProperties ids, string parentId, int index)
     {
         var f = e.FrameworkAutomationElement;
         T? Get<T>(PropertyId id) => f.TryGetPropertyValue<T>(id, out var value) ? value : default;
         T? GetStruct<T>(PropertyId id) where T : struct => f.TryGetPropertyValue<T>(id, out var value) ? value : null;
+        var identity = IdentityOf(Get<int[]>(ids.RuntimeId), parentId, index, Get<string>(ids.Name) ?? "");
 
         return new RawElement(
-            RuntimeId: string.Join('.', Get<int[]>(ids.RuntimeId) ?? []),
+            RuntimeId: identity,
             ControlType: Get<ControlType>(ids.ControlType).ToString(),
             Name: Get<string>(ids.Name) ?? "",
             AutomationId: Get<string>(ids.AutomationId) ?? "",
@@ -182,7 +195,7 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
                 _ => "leaf_node",
             },
             IsSelected: GetStruct<bool>(ids.IsSelected),
-            Children: e.CachedChildren.Select(c => Build(c, ids)).ToList());
+            Children: e.CachedChildren.Select((c, i) => Build(c, ids, identity, i)).ToList());
     }
 
     private static Rect ToRect(System.Drawing.Rectangle r) => new(r.X, r.Y, r.Width, r.Height);

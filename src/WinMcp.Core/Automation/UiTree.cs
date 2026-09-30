@@ -77,4 +77,5 @@ public sealed record ElementDetail(
     string? Parent,
     string? LabeledBy,
     string? HelpText,
-    SuggestedLocator Locator);
+    SuggestedLocator Locator,
+    string? MfcClassGuess = null);

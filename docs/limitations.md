@@ -10,6 +10,7 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 - **Collapsed tree nodes hide their children** from UIA; use `set_expanded` or a `select_option` path.
 - **Collapsed combo boxes expose no items** to UIA. WinMCP reads options with Win32 messages instead (`inspect_element`), and opens/closes the combo only while selecting. Owner-drawn combos without stored strings have no readable options; at most 200 options are returned (`option_count` gives the total).
 - **Win32 fallbacks exist only where they reach the app's handlers**: `BM_CLICK` (sent with a short timeout), `WM_SETTEXT`, and `CB_SETCURSEL` + an explicit `CBN_SELCHANGE` (without it the app never sees the change). Plain Win32 combo boxes (MFC, dialog resources) are always selected this way, because UI Automation's own selection doesn't notify the application (M10).
+- **Elements without a UI Automation runtime id** (Win32 menu bar items of an inactive window, M11) get a stable identity from their parent, position and name; refs stay distinct, but if such items are rearranged, an old ref may reach a different item with the same name.
 - **Toolbar buttons** (comctl32) are clicked through UI Automation, which leaves keyboard focus on the toolbar; WinMCP puts focus back afterwards, since MFC frames won't open their menus while the toolbar has it (M10).
 
 ## Large windows
@@ -47,7 +48,18 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 
 ## Frameworks
 
-- Verified: WinForms, classic Win32 dialogs, and MFC (dialog app with standard and common controls; CFrameWnd with toolbar, status bar and view — `samples/WinMcp.MfcTestApp`). MFC-specific knowledge (runtime classes, dialog templates) is not used yet (M11); a CView's own drawing is opaque like any custom-drawn control. WPF, WinUI, Qt and Chromium/Electron apps work to the extent their UIA providers do; they have not been tested.
+- Verified: WinForms, classic Win32 dialogs, and MFC (dialog app with standard and common controls; CFrameWnd with toolbar, status bar and view; Feature Pack controls — `samples/WinMcp.MfcTestApp`, shared and static MFC). WPF, WinUI, Qt and Chromium/Electron apps work to the extent their UIA providers do; they have not been tested.
+
+### MFC specifics (M11)
+
+- **Detection**: shared MFC is certain (loaded `mfc140u.dll`); static MFC is recognized by `Afx` window classes or MFC class names inside the executable. If the process can't be read (elevated), only window classes are used.
+- **`mfc_class_guess` is an inference** from window class and control ID. The exact C++ class needs code inside the process; WinMCP doesn't do that (see `docs/mfc-investigation.md`). Application subclasses appear as their MFC base (`CDialog` for `CMainDlg`), Feature Pack subclasses of standard controls as the base control (`CButton` for `CMFCColorButton`).
+- **Dialog templates** are found in the executable, the application's own DLLs and `<exe folder>\<LCID>\*.dll`. Templates in resource DLLs loaded from elsewhere, or created in memory at run time, aren't found. Identical templates are reported as `alternatives` rather than guessed.
+- **Opaque Feature Pack controls**: `CMFCPropertyGridCtrl` exposes no rows (only its header); `CMFCColorButton` has no name or value; `CMFCEditBrowseCtrl`'s browse button isn't exposed. Use screenshots to read them.
+- **`CMFCMaskedEdit`** accepts `set_value` only in its display format (`(555) 123-4567`, not `5551234567`) and reports its value without the literals; a rejected value is reported as `changed: false`.
+- **Native menus open only in the active window**: `invoke`/`set_expanded` on a Win32 menu item first activates the window (as a click would). When Windows refuses — e.g. the desktop is locked — the result is `FOCUS_FAILED`.
+- A CView's own drawing is opaque like any custom-drawn control.
+- **Elevated MFC applications** (e.g. Spy++, which requires administrator rights) are out of reach, like every elevated application.
 
 ## Not implemented (by design, for now)
 

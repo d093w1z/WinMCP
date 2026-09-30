@@ -21,6 +21,27 @@ internal static class UiaActions
         _ => throw new ArgumentOutOfRangeException(nameof(action)),
     };
 
+    /// <summary>
+    /// Native (Win32) menus open only in the active window: UIA's Expand/Invoke on a menu bar item of a background
+    /// window fails with "not valid due to the current state" (M11). A user's click would activate the window first,
+    /// so WinMCP does the same — and reports FOCUS_FAILED if Windows refuses, instead of an internal error.
+    /// </summary>
+    public static void ActivateForNativeMenu(AutomationElement element, ElementAction action, WinMcp.Core.Desktop.WindowHandle window)
+    {
+        // Native menu items come through the MSAA proxy with no framework id ("" — "Win32" for some); WinForms and WPF
+        // menus report their own and open fine in the background.
+        if (action is not (ElementAction.Invoke or ElementAction.SetExpanded { Expanded: true })
+            || element.Properties.ControlType.ValueOrDefault != ControlType.MenuItem
+            || element.Properties.FrameworkId.ValueOrDefault is not (null or "" or "Win32"))
+            return;
+        var hwnd = (global::Windows.Win32.Foundation.HWND)(nint)window.Value;
+        if (!Foreground.Bring(hwnd))
+            throw new WinMcpException(new WinMcpError(
+                WinMcpErrorCode.FocusFailed,
+                $"Menus of {window} open only while it is the active window, and Windows refused to activate it.",
+                Hint: Foreground.RefusedHint()));
+    }
+
     internal static ActionOutcome? ClickOutcome(Win32Controls.ClickResult result) => result switch
     {
         Win32Controls.ClickResult.Handled => new ActionOutcome("win32.BM_CLICK", true),

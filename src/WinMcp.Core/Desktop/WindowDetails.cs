@@ -23,6 +23,8 @@ public sealed record ChildWindowSummary(int Count, IReadOnlyDictionary<string, i
 /// <summary>Agent-facing result of <c>inspect_window</c>.</summary>
 /// <param name="FrameworkHint">Heuristic from window class names; null when unrecognized.</param>
 /// <param name="OwnedWindows">Shown top-level windows owned by this one, typically dialogs.</param>
+/// <param name="Framework"><see cref="FrameworkHint"/> with its evidence (loaded modules, window classes), linkage and version.</param>
+/// <param name="DialogResources">Dialog templates this window and the dialogs inside it were created from (M11).</param>
 public sealed record WindowInspection(
     WindowInfo Window,
     bool Responding,
@@ -31,4 +33,6 @@ public sealed record WindowInspection(
     IReadOnlyList<string> ExtendedStyles,
     string? FrameworkHint,
     IReadOnlyList<WindowSummary> OwnedWindows,
-    ChildWindowSummary ChildWindows);
+    ChildWindowSummary ChildWindows,
+    Native.FrameworkInfo? Framework = null,
+    IReadOnlyList<Native.DialogResourceInfo>? DialogResources = null);

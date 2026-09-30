@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.Input.KeyboardAndMouse;
@@ -16,7 +15,6 @@ namespace WinMcp.Windows;
 public sealed unsafe class Win32Keyboard : IKeyboard
 {
     private const int TextChunk = 32;
-    private static readonly TimeSpan ForegroundWait = TimeSpan.FromMilliseconds(750);
     private const ushort VkShift = 0x10, VkControl = 0x11, VkMenu = 0x12, VkReturn = 0x0D, VkTab = 0x09;
 
     /// <summary>Keys that need KEYEVENTF_EXTENDEDKEY to be told apart from their numeric-keypad twins.</summary>
@@ -32,9 +30,8 @@ public sealed unsafe class Win32Keyboard : IKeyboard
         if (PInvoke.IsIconic(hwnd))
             throw new WinMcpException(new WinMcpError(WinMcpErrorCode.WindowMinimized,
                 $"Window {window} is minimized and can't receive keyboard input.", Hint: "Ask the user to restore it."));
-        if (!BringToForeground(hwnd))
-            throw FocusFailed(window, 0, "Windows refused to bring it to the foreground",
-                "Windows only lets the foreground change in some situations. Ask the user to click the application once, then retry.");
+        if (!Foreground.Bring(hwnd))
+            throw FocusFailed(window, 0, "Windows refused to bring it to the foreground", Foreground.RefusedHint());
 
         var chunks = input switch
         {
@@ -45,44 +42,12 @@ public sealed unsafe class Win32Keyboard : IKeyboard
 
         for (var i = 0; i < chunks.Count; i++)
         {
-            if (!IsForeground(hwnd))
+            if (!Foreground.Is(hwnd))
                 throw FocusFailed(window, i, $"another window took the foreground after {i} of {chunks.Count} parts were sent",
                     "Something else (possibly a dialog of the application) has focus. Check with list_windows before retrying; the partial input already sent was not undone.");
             SendInputs(chunks[i]);
         }
         return new KeyboardOutcome("win32.SendInput", chunks.Count);
-    }
-
-    /// <summary>
-    /// Windows lets a process change the foreground only if, among other conditions, it received the last input event.
-    /// A zero-distance mouse move makes that true without side effects (an Alt tap, the usual trick, would activate
-    /// the menu bar of whatever application currently has focus).
-    /// </summary>
-    private static bool BringToForeground(HWND hwnd)
-    {
-        if (IsForeground(hwnd))
-            return true;
-        var nudge = new INPUT { type = INPUT_TYPE.INPUT_MOUSE };
-        nudge.Anonymous.mi.dwFlags = MOUSE_EVENT_FLAGS.MOUSEEVENTF_MOVE; // dx = dy = 0
-        PInvoke.SendInput([nudge], sizeof(INPUT));
-
-        PInvoke.BringWindowToTop(hwnd);
-        PInvoke.SetForegroundWindow(hwnd);
-        var wait = Stopwatch.StartNew();
-        while (wait.Elapsed < ForegroundWait)
-        {
-            if (IsForeground(hwnd))
-                return true;
-            Thread.Sleep(25);
-        }
-        return false;
-    }
-
-    /// <summary>Only the window itself (or a child of it) counts; an owned dialog is a different top-level window.</summary>
-    private static bool IsForeground(HWND hwnd)
-    {
-        var foreground = PInvoke.GetForegroundWindow();
-        return !foreground.IsNull && (foreground == hwnd || PInvoke.GetAncestor(foreground, GET_ANCESTOR_FLAGS.GA_ROOT) == hwnd);
     }
 
     private static List<INPUT[]> TextChunks(string text)

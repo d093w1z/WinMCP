@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using WinMcp.Core.Automation;
 using WinMcp.Core.Capture;
 using WinMcp.Core.Desktop;
+using WinMcp.Core.Native;
 using WinMcp.Core.Policy;
 using WinMcp.Server;
 using WinMcp.Windows;
@@ -40,6 +41,9 @@ builder.Services.AddSingleton(_ => new AutomationDispatcher(uiaTimeout: TimeSpan
 builder.Services.AddSingleton<IUiAutomation, UiaAutomation>();
 builder.Services.AddSingleton<IScreenCapture, PrintWindowCapture>();
 builder.Services.AddSingleton<IKeyboard, Win32Keyboard>();
+// M11: framework detection from loaded modules and dialog templates; optional for WindowQuery and UiTreeService.
+builder.Services.AddSingleton<INativeProcesses, Win32NativeProcesses>();
+builder.Services.AddSingleton<NativeAppInfo>();
 builder.Services.AddWinMcpServer(options).WithStdioServerTransport();
 
 await builder.Build().RunAsync();

@@ -12,7 +12,9 @@ WinMCP lets an AI agent read and operate desktop applications as the signed-in u
 | **Deny-list** | UAC (`consent`), `LogonUI`, `winlogon`, `CredentialUIBroker`, and WinMCP itself can never be targeted, even if allowlisted. | always on |
 | **Audit log** | Every control action — successful or refused — is appended as JSON to `%LOCALAPPDATA%\WinMCP\audit\audit-YYYYMMDD.jsonl` (tool, window, process, element, arguments, outcome, method, duration). | always on (`--audit-dir` to relocate) |
 
-Configuration comes only from the command line the user (or their MCP client config) supplies. No tool can change the mode, the allowlist, or read files (`resource.h` paths for `--symbols` are operator configuration, never tool arguments).
+Configuration comes only from the command line the user (or their MCP client config) supplies. No tool can change the mode, the allowlist, or read files of its choosing (`resource.h` paths for `--symbols` are operator configuration, never tool arguments).
+
+`inspect_window` does read files of **allowlisted applications**, derived from the process itself, never from arguments: the list of loaded modules, and the application's own executable, DLLs from its folder and its language-folder resource DLLs — mapped as data only (`LOAD_LIBRARY_AS_DATAFILE`, no code runs) to match dialog templates, and scanned for MFC class names. Only template IDs, captions and control IDs are reported. System DLLs are not read. Nothing is ever loaded into or injected into a target process; the M11 in-process research (`spikes/M11.MfcRuntimeClass`) is deliberately not part of the server.
 
 ## What an agent can never learn about other applications
 
