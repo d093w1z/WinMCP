@@ -38,7 +38,8 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
                 Patterns: live.GetSupportedPatterns().Select(p => p.Name.Replace("Pattern", "", StringComparison.Ordinal)).Order(StringComparer.Ordinal).ToList(),
                 ControlId: Win32Controls.ControlId(hwnd, (nint)element.Window.Value),
                 Options: options?.Options,
-                OptionCount: options?.Count);
+                OptionCount: options?.Count,
+                Bounds: ToRect(live.Properties.BoundingRectangle.ValueOrDefault));
         }), cancellationToken);
 
     /// <summary>Elements from the Win32 fallback tree are driven by Win32 messages only — UIA is what failed for them.</summary>
@@ -97,72 +98,82 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
 
     /// <summary>
     /// One cross-process round trip for the whole control-view subtree plus every property the tree shows
-    /// (M0: naive per-property walks cost one round trip per property per element).
+    /// (M0: naive per-property walks cost one round trip per property per element). Measured on a 10,000-row list
+    /// (M9b): bounds cost 1.8 s of a 3.2 s fetch, so they're read live per element instead (ElementExtras.Bounds);
+    /// pattern values are read as cached properties without pattern objects (processing 2.6 s → 1.2 s).
     /// </summary>
     private static RawElement FetchTree(UIA3Automation automation, WindowHandle window)
     {
-        var element = automation.PropertyLibrary.Element;
+        var ids = new TreeProperties(automation);
         var request = new CacheRequest
         {
             TreeScope = TreeScope.Subtree,
-            TreeFilter = new NotCondition(new PropertyCondition(element.IsControlElement, false)),
+            TreeFilter = new NotCondition(new PropertyCondition(automation.PropertyLibrary.Element.IsControlElement, false)),
         };
-        foreach (var property in new PropertyId[]
-        {
-            element.RuntimeId, element.ControlType, element.Name, element.AutomationId, element.ClassName,
-            element.NativeWindowHandle, element.BoundingRectangle, element.IsEnabled, element.IsOffscreen,
-            element.IsPassword, element.HasKeyboardFocus,
-            automation.PropertyLibrary.Value.Value,
-            automation.PropertyLibrary.Toggle.ToggleState,
-            automation.PropertyLibrary.ExpandCollapse.ExpandCollapseState,
-            automation.PropertyLibrary.SelectionItem.IsSelected,
-        })
-        {
+        foreach (var property in ids.All)
             request.Add(property);
-        }
-        foreach (var pattern in new PatternId[]
-        {
-            automation.PatternLibrary.ValuePattern, automation.PatternLibrary.TogglePattern,
-            automation.PatternLibrary.ExpandCollapsePattern, automation.PatternLibrary.SelectionItemPattern,
-        })
-        {
-            request.Add(pattern);
-        }
 
         var windowElement = automation.FromHandle((nint)window.Value);
         using (request.Activate())
         {
             var root = windowElement.FindFirst(TreeScope.Element, TrueCondition.Default)
                 ?? throw WindowClosed(window);
-            return Build(root);
+            return Build(root, ids);
         }
     }
 
-    private static RawElement Build(AutomationElement e)
+    private sealed class TreeProperties(UIA3Automation automation)
     {
-        var bounds = e.Properties.BoundingRectangle.ValueOrDefault;
-        var patterns = e.Patterns;
+        public PropertyId RuntimeId { get; } = automation.PropertyLibrary.Element.RuntimeId;
+        public PropertyId ControlType { get; } = automation.PropertyLibrary.Element.ControlType;
+        public PropertyId Name { get; } = automation.PropertyLibrary.Element.Name;
+        public PropertyId AutomationId { get; } = automation.PropertyLibrary.Element.AutomationId;
+        public PropertyId ClassName { get; } = automation.PropertyLibrary.Element.ClassName;
+        public PropertyId NativeWindowHandle { get; } = automation.PropertyLibrary.Element.NativeWindowHandle;
+        public PropertyId IsEnabled { get; } = automation.PropertyLibrary.Element.IsEnabled;
+        public PropertyId IsOffscreen { get; } = automation.PropertyLibrary.Element.IsOffscreen;
+        public PropertyId IsPassword { get; } = automation.PropertyLibrary.Element.IsPassword;
+        public PropertyId HasKeyboardFocus { get; } = automation.PropertyLibrary.Element.HasKeyboardFocus;
+        public PropertyId Value { get; } = automation.PropertyLibrary.Value.Value;
+        public PropertyId ToggleState { get; } = automation.PropertyLibrary.Toggle.ToggleState;
+        public PropertyId ExpandCollapseState { get; } = automation.PropertyLibrary.ExpandCollapse.ExpandCollapseState;
+        public PropertyId IsSelected { get; } = automation.PropertyLibrary.SelectionItem.IsSelected;
+
+        public PropertyId[] All =>
+        [
+            RuntimeId, ControlType, Name, AutomationId, ClassName, NativeWindowHandle, IsEnabled, IsOffscreen,
+            IsPassword, HasKeyboardFocus, Value, ToggleState, ExpandCollapseState, IsSelected,
+        ];
+    }
+
+    /// <summary>Reads cached values directly; an unsupported pattern property simply isn't available (→ null).</summary>
+    private static RawElement Build(AutomationElement e, TreeProperties ids)
+    {
+        var f = e.FrameworkAutomationElement;
+        T? Get<T>(PropertyId id) => f.TryGetPropertyValue<T>(id, out var value) ? value : default;
+        T? GetStruct<T>(PropertyId id) where T : struct => f.TryGetPropertyValue<T>(id, out var value) ? value : null;
+
         return new RawElement(
-            RuntimeId: string.Join('.', e.Properties.RuntimeId.ValueOrDefault ?? []),
-            ControlType: e.Properties.ControlType.ValueOrDefault.ToString(),
-            Name: e.Properties.Name.ValueOrDefault ?? "",
-            AutomationId: e.Properties.AutomationId.ValueOrDefault ?? "",
-            ClassName: e.Properties.ClassName.ValueOrDefault ?? "",
-            NativeWindowHandle: e.Properties.NativeWindowHandle.ValueOrDefault,
-            Bounds: new Rect(bounds.X, bounds.Y, bounds.Width, bounds.Height),
-            IsEnabled: e.Properties.IsEnabled.ValueOrDefault,
-            IsOffscreen: e.Properties.IsOffscreen.ValueOrDefault,
-            IsPassword: e.Properties.IsPassword.ValueOrDefault,
-            HasKeyboardFocus: e.Properties.HasKeyboardFocus.ValueOrDefault,
-            Value: patterns.Value.PatternOrDefault?.Value.ValueOrDefault,
-            ToggleState: patterns.Toggle.PatternOrDefault?.ToggleState.ValueOrDefault switch
+            RuntimeId: string.Join('.', Get<int[]>(ids.RuntimeId) ?? []),
+            ControlType: Get<ControlType>(ids.ControlType).ToString(),
+            Name: Get<string>(ids.Name) ?? "",
+            AutomationId: Get<string>(ids.AutomationId) ?? "",
+            ClassName: Get<string>(ids.ClassName) ?? "",
+            NativeWindowHandle: Get<nint>(ids.NativeWindowHandle),
+            Bounds: default,
+            IsEnabled: Get<bool>(ids.IsEnabled),
+            IsOffscreen: Get<bool>(ids.IsOffscreen),
+            IsPassword: Get<bool>(ids.IsPassword),
+            HasKeyboardFocus: Get<bool>(ids.HasKeyboardFocus),
+            Value: Get<string>(ids.Value),
+            ToggleState: GetStruct<ToggleState>(ids.ToggleState) switch
             {
                 null => null,
                 ToggleState.On => "on",
                 ToggleState.Off => "off",
                 _ => "indeterminate",
             },
-            ExpandCollapseState: patterns.ExpandCollapse.PatternOrDefault?.ExpandCollapseState.ValueOrDefault switch
+            ExpandCollapseState: GetStruct<ExpandCollapseState>(ids.ExpandCollapseState) switch
             {
                 null => null,
                 ExpandCollapseState.Collapsed => "collapsed",
@@ -170,9 +181,11 @@ public sealed class UiaAutomation(AutomationDispatcher dispatcher) : IUiAutomati
                 ExpandCollapseState.PartiallyExpanded => "partially_expanded",
                 _ => "leaf_node",
             },
-            IsSelected: patterns.SelectionItem.PatternOrDefault?.IsSelected.ValueOrDefault,
-            Children: e.CachedChildren.Select(Build).ToList());
+            IsSelected: GetStruct<bool>(ids.IsSelected),
+            Children: e.CachedChildren.Select(c => Build(c, ids)).ToList());
     }
+
+    private static Rect ToRect(System.Drawing.Rectangle r) => new(r.X, r.Y, r.Width, r.Height);
 
     /// <summary>Maps UIA failures to agent-facing errors; anything else propagates as an internal error.</summary>
     private static T Translate<T>(WindowHandle window, Func<T> work)

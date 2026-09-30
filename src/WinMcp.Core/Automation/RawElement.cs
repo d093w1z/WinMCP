@@ -6,7 +6,8 @@ namespace WinMcp.Core.Automation;
 public readonly record struct ElementKey(WindowHandle Window, string RuntimeId);
 
 /// <summary>
-/// One UI Automation element as fetched from the target, before any normalization. String enums use UIA names:
+/// One UI Automation element as fetched from the target, before any normalization. <see cref="Bounds"/> is empty for
+/// UIA tree fetches (too costly to fetch in bulk; use <see cref="ElementExtras.Bounds"/>) and set for Win32 fallback trees. String enums use UIA names:
 /// <see cref="ControlType"/> like <c>Button</c>; <see cref="ToggleState"/> <c>on|off|indeterminate</c>;
 /// <see cref="ExpandCollapseState"/> <c>collapsed|expanded|partially_expanded|leaf_node</c>.
 /// Pattern-derived values are null when the element doesn't support the pattern.
@@ -37,6 +38,7 @@ public sealed record RawElement(
 /// <param name="ControlId">Win32 control ID (<c>GetDlgCtrlID</c>) when the element is itself a child window.</param>
 /// <param name="Options">Items of a combo box read without opening it (possibly capped); null when not a combo or not readable.</param>
 /// <param name="OptionCount">Total number of items, which may exceed <see cref="Options"/>' length.</param>
+/// <param name="Bounds">Screen rectangle, read live: bulk tree fetches omit bounds (M9b: 1.8 s of 3.2 s on a 10,000-row list).</param>
 public sealed record ElementExtras(
     string FrameworkId,
     bool IsKeyboardFocusable,
@@ -45,7 +47,8 @@ public sealed record ElementExtras(
     IReadOnlyList<string> Patterns,
     int? ControlId,
     IReadOnlyList<string>? Options,
-    int? OptionCount = null)
+    int? OptionCount = null,
+    Rect Bounds = default)
 {
     /// <summary>Implementations return at most this many <see cref="Options"/>.</summary>
     public const int MaxOptions = 200;

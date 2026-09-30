@@ -94,7 +94,14 @@ internal static class Win32Actions
             Patterns: capabilities,
             ControlId: PInvoke.GetDlgCtrlID(hwnd),
             Options: options?.Options,
-            OptionCount: options?.Count);
+            OptionCount: options?.Count,
+            Bounds: WindowRect(hwnd));
+    }
+
+    private static Rect WindowRect(HWND hwnd)
+    {
+        using var dpi = DpiScope.Enter();
+        return PInvoke.GetWindowRect(hwnd, out var r) ? new Rect(r.left, r.top, r.right - r.left, r.bottom - r.top) : default;
     }
 
     private static unsafe string ClassName(HWND hwnd)

@@ -44,7 +44,9 @@ public sealed class Win32DesktopTests : IClassFixture<TestAppSession>
         // WinMCP's own UIA reading, not the test harness's: the harness runs DPI-unaware and gets scaled coordinates
         // above 100% scaling, while WinMCP reads everything in physical pixels (M8).
         using var services = new WinMcpServices();
-        var uia = (await services.Automation.GetWindowTreeAsync(window.Hwnd, TestContext.Current.CancellationToken)).Bounds;
+        var root = (await services.Tree.GetTreeAsync(window.Hwnd.ToString(), null, 1, 1, TestContext.Current.CancellationToken)).Root;
+        // Trees don't carry bounds (M9b); inspect_element reads them live.
+        var uia = (await services.Tree.InspectAsync(null, root.Ref, new WinMcp.Core.Automation.ElementLocator(), TestContext.Current.CancellationToken)).Bounds;
 
         Assert.Equal(200, window.Bounds.Y); // --position 200,200; the visible frame starts at the requested top
         Assert.True(window.Bounds.Width > 0 && window.Bounds.Height > 0);

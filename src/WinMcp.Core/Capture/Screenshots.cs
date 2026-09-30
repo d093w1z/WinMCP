@@ -59,7 +59,7 @@ public sealed class ScreenshotService(WindowQuery windows, UiTreeService tree, I
             var target = await tree.ResolveElementAsync(hwnd, element, locator, cancellationToken);
             window = target.Window;
             reference = target.Ref;
-            var bounds = target.Element.Bounds;
+            var bounds = target.Element.IsOffscreen ? default : await tree.BoundsAsync(target, cancellationToken);
             if (target.Element.IsOffscreen || bounds.Width <= 0 || bounds.Height <= 0)
                 throw new WinMcpException(new WinMcpError(WinMcpErrorCode.ElementOffscreen,
                     $"Element '{reference}' is not visible on screen, so it can't be captured.",

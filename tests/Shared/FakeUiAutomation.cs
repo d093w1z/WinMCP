@@ -18,8 +18,16 @@ internal sealed class FakeUiAutomation : IUiAutomation
 
     public int FetchCount { get; private set; }
 
-    public Task<ElementExtras> GetElementExtrasAsync(ElementKey element, CancellationToken cancellationToken) =>
-        Task.FromResult(Extras.TryGetValue(element.RuntimeId, out var extras) ? extras : DefaultExtras);
+    /// <summary>Explicit extras, or defaults carrying the element's bounds from its canned tree (as the real one reads them live).</summary>
+    public Task<ElementExtras> GetElementExtrasAsync(ElementKey element, CancellationToken cancellationToken)
+    {
+        if (Extras.TryGetValue(element.RuntimeId, out var extras))
+            return Task.FromResult(extras);
+        var bounds = Trees.TryGetValue(element.Window, out var tree)
+            ? tree.DescendantsAndSelf().FirstOrDefault(e => e.RuntimeId == element.RuntimeId)?.Bounds ?? default
+            : default;
+        return Task.FromResult(DefaultExtras with { Bounds = bounds });
+    }
 
     /// <summary>Every action that reached the "target", in order.</summary>
     public List<(ElementKey Element, ElementAction Action)> Performed { get; } = [];

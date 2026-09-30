@@ -13,7 +13,11 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 
 ## Large windows
 
-- Fetching a tree costs the target roughly **2.5 ms per element for WinForms** and ~1.3 ms for native Win32 (measured: 634 WinForms elements ≈ 1.5 s), and this is the application's own traversal — requesting fewer properties doesn't help. A window with thousands of elements (e.g. a list with thousands of rows) can exceed the 3 s UI Automation timeout while perfectly healthy. WinMCP then reports `TARGET_NOT_RESPONDING` with a hint that the tree is probably too large. Planned for M9: fetch level by level and stop at `max_nodes`.
+- **Every tool call fetches the window's whole UI Automation tree**; `max_nodes` limits what is returned, not what is fetched. Cost depends on the kind of element:
+  - **Window-backed controls are expensive**: ~2.5 ms each for WinForms (634 buttons ≈ 1.5 s), dominated by the application's own work per HWND.
+  - **Windowless items are cheap**: a 10,000-row list (≈ 40,000 elements) takes ~2.4 s for `get_ui_tree` / `find_elements` and ~4.7 s for `select_option` (measured M9b, after removing bounds from the bulk fetch).
+  - The single UIA call behind a fetch must finish within the 3 s UIA timeout; for the 10,000-row list it takes ~1 s, so lists up to roughly 30,000 rows should work. Beyond that, WinMCP falls back to the window's Win32 controls (the list then appears as one `List` element).
+- A true node budget (walk the tree and stop at `max_nodes`, ~0.25 ms per element measured) is a possible future optimization; it doesn't help `find_elements`, which must search everything.
 
 ## Hung and busy applications
 

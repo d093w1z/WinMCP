@@ -122,7 +122,7 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
             extras.Patterns,
             target.IsPassword ? null : extras.Options,
             target.IsPassword ? null : extras.OptionCount ?? extras.Options?.Count,
-            target.Bounds,
+            extras.Bounds,
             parent,
             labeledBy,
             NullIfEmpty(extras.HelpText),
@@ -145,6 +145,10 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
         var (tree, _) = await FetchAsync(window, cancellationToken);
         return tree.DescendantsAndSelf().LastOrDefault(e => e.HasKeyboardFocus);
     }
+
+    /// <summary>Live screen bounds of a resolved element (trees don't carry bounds; see <see cref="ElementExtras.Bounds"/>).</summary>
+    public async Task<Rect> BoundsAsync(ResolvedElement element, CancellationToken cancellationToken) =>
+        (await automation.GetElementExtrasAsync(element.Key, cancellationToken)).Bounds;
 
     public const int DefaultWaitTimeoutMs = 5000;
     private const int MaxWaitTimeoutMs = 60_000;

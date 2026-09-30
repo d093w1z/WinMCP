@@ -510,7 +510,7 @@ Flakiness controls: no `Thread.Sleep` in tests (use `wait_for`/polling with dead
 | **M6 — Interaction + `wait_for`** ✅ | `invoke`, `set_value`, `select_option`, `set_toggle` (control mode only), `wait_for` (both modes), `InteractionService` (enabled/password/mode checks, audit), `UiaActions` (patterns + Win32 fallbacks), JSONL audit log, `--audit-dir` | 290 tests green; **golden scenario passes in integration and in E2E over stdio**, audit shows only semantic methods; GUI suites 3/3 runs |
 | **M7 — Screenshots** ✅ | `capture_screenshot` (window or element + padding, `max_edge` downscaling, PNG image block + JSON metadata), `PrintWindowCapture` (PW_RENDERFULLCONTENT, hang-safe), `ELEMENT_OFFSCREEN` | 312 tests green; captures inspected visually; covered-window capture shows no pixels of the window on top |
 | **M8 — `send_keys`, E2E, hardening → MVP** ✅ | `send_keys` with per-chunk foreground verification, 3× faster E2E, docs, DPI fixes (library + TestApp), 20/20 stability at 150%, agent eval 5/5 | **All 8 MVP criteria met — MVP complete (2026-09-30)** |
-| M9 — TestApp v2 breadth (M9a ✅ broader UI; M9b budgeted fetch pending) | Menus, ListView, TreeView, dialog, tabs, custom-painted control; tree/actions extended (ExpandCollapse, grid/table items, menu navigation). **Budgeted tree fetch** (walk level by level, stop at max_nodes/max_depth; target-side search for refs and find_elements) so large lists don't hit the UIA timeout — see M4 notes | New integration tests; 10k-row list stays under the timeout |
+| M9 — TestApp v2 breadth ✅ (M9a broader UI; M9b large windows) | Menus, ListView, TreeView, dialog, tabs, custom-painted control; tree/actions extended (ExpandCollapse, grid/table items, menu navigation). **Budgeted tree fetch** (walk level by level, stop at max_nodes/max_depth; target-side search for refs and find_elements) so large lists don't hit the UIA timeout — see M4 notes | New integration tests; 10k-row list stays under the timeout |
 | M10 — MFC test app | C++/MFC dialog app equivalent to v1+v2 (CDialog, CEdit, CComboBox, CButton, CListCtrl, CTreeCtrl) + a CFrameWnd/CView doc app with menu/toolbar/status bar. **Same integration suite parameterized over both apps** (per-app locator map — MFC map uses `control_symbol` locators via the app's own `resource.h`) | Suite runs against MFC app; symbol mapping verified live; diffs documented |
 | M11 — MFC investigation | See below; `docs/mfc-investigation.md`; go/no-go on in-process inspector | Report + enrichment features that proved reliable |
 
@@ -705,6 +705,20 @@ Explored first (throwaway tests against TestApp v2: menu bar, list view, tree vi
 | Custom-drawn control: one empty `Pane`. | As expected; still capturable with `capture_screenshot` (tested). |
 
 Tool count is now 13 (7 observe + 6 control).
+
+## M9b implementation notes (2026-10-01) — large windows
+
+Measured before designing (TestApp `--rows 10000`: ≈ 40,000 UIA elements):
+
+| Measurement | Result |
+|---|---|
+| Raw subtree fetch, basic properties | 0.8 s — windowless list items are cheap; M4's "2.5 ms/element" was really **per window-backed control** |
+| WinMCP before M9b | 5.8 s per tree/find call (fetch 3.2 s — right at the 3 s UIA timeout — + client processing 2.6 s); `select_option` 8.2 s |
+| Cost per cached property | `BoundingRectangle` +1.8 s; every other property ≈ 0 |
+| Pattern objects vs. direct cached-property reads | processing 2.6 s → 1.2 s |
+| Walker, one element per round trip | 0.25 ms/element (a node budget would be cheap) |
+
+Changes: bulk tree fetches no longer request bounds (read live per element for `inspect_element` and element screenshots via `ElementExtras.Bounds`); pattern values are read as cached properties without pattern objects or patterns in the cache request. Result: `get_ui_tree` 2.4 s, `find_elements` 2.4 s, `select_option` 4.7 s on 10,000 rows, with the UIA call at ~1 s (headroom to roughly 30,000 rows). A walker-based node budget was not needed for the goal and stays a possible optimization (it can't help `find_elements`). `LargeListTests` guards the numbers (< 4 s).
 
 ---
 
