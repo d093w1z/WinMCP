@@ -3,7 +3,12 @@
     "winmcp": {
       "type": "stdio",
       "command": "artifacts/winmcp/WinMcp.Server.exe",
-      "args": ["--mode", "control", "--allow", "WinMcp.TestApp"]
+      "args": [
+        "--mode", "control",
+        "--allow", "WinMcp.TestApp",
+        "--allow", "WinMcp.MfcTestApp",
+        "--symbols", "WinMcp.MfcTestApp=samples/WinMcp.MfcTestApp/resource.h"
+      ]
     }
   }
 }
