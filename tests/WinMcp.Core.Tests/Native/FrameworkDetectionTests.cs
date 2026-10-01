@@ -65,6 +65,20 @@ public sealed class FrameworkDetectionTests
     }
 
     [Fact]
+    public void MFC_extension_libraries_are_named_with_evidence()
+    {
+        var byClass = FrameworkDetection.Detect("Afx:0000000140000000:8", ["BCGPRibbonBar", "BCGPControlBar"], MfcModules, Version)!;
+        var byModule = FrameworkDetection.Detect("AfxFrameOrView140u", [], [.. MfcModules, FakeNativeProcesses.Module(@"C:\App\ToolkitPro2400vc170x64U.dll")], Version)!;
+
+        Assert.Equal(["BCGControlBar"], byClass.Libraries);
+        Assert.Contains("BCGControlBar: window class 'BCGPRibbonBar'", byClass.Evidence);
+        Assert.Equal(["Codejock Xtreme Toolkit"], byModule.Libraries);
+        Assert.Contains("Codejock Xtreme Toolkit: loaded module ToolkitPro2400vc170x64U.dll", byModule.Evidence);
+        Assert.Null(FrameworkDetection.Detect("#32770", ["Button"], MfcModules, Version)!.Libraries);
+        Assert.Null(FrameworkDetection.Detect("WindowsForms10.Window.8.app.0.1", ["BCGPToolBar"], Win32Modules, Version)!.Libraries); // MFC only
+    }
+
+    [Fact]
     public void Other_frameworks_come_from_class_names_with_evidence()
     {
         var info = FrameworkDetection.Detect("MainWnd", ["WindowsForms10.BUTTON.app.0.1"], Win32Modules, Version, () => false)!;

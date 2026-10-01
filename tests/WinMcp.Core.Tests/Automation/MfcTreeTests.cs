@@ -26,6 +26,10 @@ public sealed class MfcTreeTests
             Element("3.2", "ToolBar", "", "59392", className: "ToolbarWindow32") with { NativeWindowHandle = 0x32 },
             Element("3.3", "List", "PropertyList", "1306", className: "Afx:PropList:1:8:10003:10") with { NativeWindowHandle = 0x33 },
             (Element("3.4", "Header", "Header Control", "Header", className: "SysHeader32") with { NativeWindowHandle = 0x34 }),
+            (Element("3.6", "Pane", "", "59443", className: "BCGPControlBar") with { NativeWindowHandle = 0x36 }).With(
+                Element("3.6.1", "Button", "Pin", "1", className: "Button") with { NativeWindowHandle = 0x37 }),
+            (Element("3.7", "Pane", "", "59649", className: "#32770") with { NativeWindowHandle = 0x38 }).With(
+                Element("3.7.1", "Button", "OK", "1", className: "Button") with { NativeWindowHandle = 0x39 }),
             Element("3.5", "MenuBar", "Application").With(
                 Element("3.5.1", "MenuItem", "Exit", "57665")));
         _automation.Extras["3.1"] = new ElementExtras("Win32", true, "", null, [], 0xE900, null);
@@ -56,6 +60,15 @@ public sealed class MfcTreeTests
         Assert.Contains("Pane \"\" #59648 (AFX_IDW_PANE_FIRST)", outline);
         Assert.Contains("ToolBar \"\" #59392 (AFX_IDW_TOOLBAR)", outline);
         Assert.Contains("MenuItem \"Exit\" #57665 (ID_APP_EXIT)", outline); // a command, not ID_VIEW_*/AFX_IDW_*
+    }
+
+    [Fact]
+    public async Task Standard_dialog_ids_only_name_controls_of_dialogs()
+    {
+        var lines = OutlineRenderer.Render(await _service.GetTreeAsync("hwnd:0x00000030", null, 10, 100, Token)).Split('\n');
+
+        Assert.Contains(lines, l => l.Contains("Button \"Pin\" #1") && !l.Contains("IDOK")); // a BCG pane's child 1 (real-world app, M11)
+        Assert.Contains(lines, l => l.Contains("Button \"OK\" #1 (IDOK)")); // inside a (form view) dialog it is IDOK
     }
 
     [Fact]

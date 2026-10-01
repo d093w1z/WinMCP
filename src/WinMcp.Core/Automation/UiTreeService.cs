@@ -26,6 +26,21 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
     private sealed record Scope(WindowDetails Window, RawElement Tree, RawElement Root, SymbolTable? Symbols, string? Source, bool Mfc)
     {
         public WindowHandle Handle => Window.Window.Hwnd;
+
+        private Dictionary<string, RawElement>? _parents;
+
+        /// <summary>Parent of an element in the (normalized) tree; null for the root.</summary>
+        public RawElement? ParentOf(RawElement e)
+        {
+            if (_parents is null)
+            {
+                _parents = [];
+                foreach (var node in Tree.DescendantsAndSelf())
+                    foreach (var child in node.Children)
+                        _parents[child.RuntimeId] = node;
+            }
+            return _parents.GetValueOrDefault(e.RuntimeId);
+        }
     }
 
     public async Task<UiTree> GetTreeAsync(string? hwnd, string? element, int maxDepth, int maxNodes, CancellationToken cancellationToken)
@@ -411,11 +426,15 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
     private static SymbolMatch SymbolFor(Scope scope, RawElement e) =>
         ParseId(e.AutomationId) is { } id ? SymbolFor(scope, e, id) : SymbolMatch.None;
 
-    /// <summary>Menu items carry command IDs (<c>ID_*</c>), everything else control IDs.</summary>
+    /// <summary>
+    /// Menu items carry command IDs (<c>ID_*</c>), everything else control IDs. Windows' standard dialog IDs (<c>IDOK</c>,
+    /// <c>IDCANCEL</c>, <c>IDC_STATIC</c>) apply only to controls of a dialog: elsewhere 1 and 2 are just small IDs
+    /// (BCGControlBar's internal windows in a real-world application showed as IDOK/IDCANCEL, M11).
+    /// </summary>
     private static SymbolMatch SymbolFor(Scope scope, RawElement e, int id) =>
         scope.Symbols is not { } table ? SymbolMatch.None
         : e.ControlType == "MenuItem" ? table.LookupCommand(id)
-        : table.LookupControl(id);
+        : table.LookupControl(id, standardDialogIds: scope.ParentOf(e)?.ClassName == "#32770");
 
     /// <returns>Root-to-target chain of elements, or null when the target isn't in the tree.</returns>
     private static List<RawElement>? PathTo(RawElement node, string runtimeId)

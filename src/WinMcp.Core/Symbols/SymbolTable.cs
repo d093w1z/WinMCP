@@ -68,7 +68,14 @@ public sealed class SymbolTable
     /// <summary>A table with no application symbols: only the standard IDs.</summary>
     public static SymbolTable Standard(bool mfcStandardIds) => new([], mfcStandardIds);
 
-    public SymbolMatch LookupControl(int controlId) => Match(_controlNamesById[controlId]);
+    /// <param name="standardDialogIds">
+    /// Include Windows' standard dialog IDs (<c>IDOK</c>, <c>IDCANCEL</c>, <c>IDC_STATIC</c>, …). They only mean
+    /// something for controls of a dialog; inside other windows 1 and 2 are ordinary IDs.
+    /// </param>
+    public SymbolMatch LookupControl(int controlId, bool standardDialogIds = true) =>
+        Match(_controlNamesById[controlId].Where(name => standardDialogIds || !StandardNames.Contains(name)));
+
+    private static readonly HashSet<string> StandardNames = StandardControlIds.Select(s => s.Name).ToHashSet();
 
     /// <summary>Command IDs: <c>ID_*</c>/<c>IDM_*</c> names (menu items, toolbar buttons).</summary>
     public SymbolMatch LookupCommand(int commandId) => Match(_commandNamesById[commandId]);

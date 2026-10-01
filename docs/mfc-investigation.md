@@ -17,7 +17,7 @@ What WinMCP can learn about MFC applications beyond what UI Automation shows, me
 
 - `samples/WinMcp.MfcTestApp` in three modes — dialog (the TestApp contract), `--frame` (CFrameWnd + CView + CToolBar + CStatusBar), `--features` (owner-drawn button, CMFCButton, CMFCColorButton, CMFCEditBrowseCtrl, CMFCMaskedEdit, CMFCPropertyGridCtrl) — each built with **shared and static MFC** (`scripts/build-mfc.ps1` builds both).
 - `charmap.exe`: a real Win32 dialog application whose resources live in a MUI file.
-- Real-world MFC: Spy++ (`spyxx_amd64.exe`, shared MFC 14) is the only MFC application on the test machine, and it **requires elevation** (its manifest asks for administrator rights), so it is out of reach for WinMCP by design. A real-world MFC application should be tried in the development environment.
+- Real-world MFC: Spy++ (`spyxx_amd64.exe`, shared MFC 14) is the only MFC application on the test machine, and it **requires elevation** (its manifest asks for administrator rights), so it is out of reach for WinMCP by design. A real-world, non-elevated MFC application was then tried through a Claude Code agent (see "Real-world application" below).
 
 ## 1. Detecting MFC
 
@@ -111,8 +111,16 @@ Constraints confirmed or implied: same MFC DLL as the target (shared builds only
 
 **Decision: no-go for WinMCP.** What it adds over steps 1–4 is the application's own class names (only where declared with `DECLARE_DYNAMIC`) and exact Feature Pack subclasses — useful when debugging one's own application, but no help for an agent deciding what to click, and not worth code injection in a tool meant to be safe by default. If "debug my own app" becomes a goal, the better route is cooperative: an optional helper the developer links into their own application that answers the same question over a local channel, instead of injection into arbitrary processes.
 
+## Real-world application
+
+A commercial, non-elevated engineering application (shared MFC 14, built on **BCGControlBar Pro**: ribbon, docking panes, MDI, an embedded browser control), driven by a Claude Code agent through an observe-mode server, start screen with no document open:
+
+- **Worked without configuration**: MFC detection (`mfc140u.dll` 14.51), `AFX_IDW_MENUBAR` / `AFX_IDW_STATUS_BAR` / `AFX_IDW_DOCKBAR_BOTTOM` / `AFX_IDW_PANE_FIRST` (the `MDIClient`) symbols, the ribbon's Home tab with all groups and buttons and their disabled states, docking-pane tool bars, a combo box's options read without opening it, status-bar buttons and a slider value. All calls returned promptly; nothing was truncated. The agent used one screenshot, for custom-drawn content.
+- **Not visible to UI Automation** (library/application limits): the contents of ribbon tabs other than the selected one and of the application menu (built only when shown — needs control mode); a custom-drawn "DirectUI" start panel (links readable only from a screenshot); the property grid (`AfxWnd140u`, opaque like `CMFCPropertyGridCtrl`); the status-bar message text; the embedded browser's content. BCG's splitters (`BCGPSlider`) appear as unnamed `ToolBar` elements.
+- **Fixed in WinMCP**: BCG's internal child windows numbered 1 and 2 were labelled `IDOK`/`IDCANCEL`. Windows' standard dialog IDs are now applied only to controls whose parent is a dialog. **Added**: `framework.libraries` names MFC extension libraries (BCGControlBar, Codejock Xtreme Toolkit) from window classes or DLLs, so an agent knows why the tree looks the way it does.
+- `dialog_resources` was empty, correctly: no dialog was open, and the main frame isn't created from a template.
 ## Next steps
 
-- Try a real-world, non-elevated MFC application in the development environment (Spy++ can't be used; many line-of-business MFC apps can), especially one with satellite resource DLLs and Feature Pack UI.
+- Real-world application, continued: control mode (ribbon tabs, application menu, an open document with its dialogs, to test dialog-template matching on real resources).
 - Property grid and other opaque Feature Pack controls: whether the focused property becomes visible through MSAA when the grid has keyboard focus (untested here: the desktop refused focus changes during that run) would be the next thing to measure if such apps matter.
 - x86 targets: detection and templates are bitness-independent (data only); nothing else in M11 needs changes, but it hasn't been tested.

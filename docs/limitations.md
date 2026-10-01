@@ -59,6 +59,7 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 - **`CMFCMaskedEdit`** accepts `set_value` only in its display format (`(555) 123-4567`, not `5551234567`) and reports its value without the literals; a rejected value is reported as `changed: false`.
 - **Native menus open only in the active window**: `invoke`/`set_expanded` on a Win32 menu item first activates the window (as a click would). When Windows refuses — e.g. the desktop is locked — the result is `FOCUS_FAILED`.
 - A CView's own drawing is opaque like any custom-drawn control.
+- **MFC extension libraries** (BCGControlBar, Codejock): ribbons expose only the selected tab's controls, application menus only while open; their splitters appear as unnamed tool bars; custom-drawn panels and property grids are opaque. `framework.libraries` says which library is in use.
 - **Elevated MFC applications** (e.g. Spy++, which requires administrator rights) are out of reach, like every elevated application.
 
 ## Not implemented (by design, for now)

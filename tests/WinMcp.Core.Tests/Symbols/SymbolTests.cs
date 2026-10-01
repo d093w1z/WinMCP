@@ -152,6 +152,17 @@ public sealed class SymbolTableTests
     }
 
     [Fact]
+    public void Standard_dialog_ids_can_be_left_out_for_controls_outside_dialogs()
+    {
+        var table = Table("#define IDC_EDIT_NAME 1000");
+
+        Assert.Equal(SymbolMatch.None, table.LookupControl(1, standardDialogIds: false));
+        Assert.Equal(SymbolMatch.None, table.LookupControl(-1, standardDialogIds: false));
+        Assert.Equal("IDC_EDIT_NAME", table.LookupControl(1000, standardDialogIds: false).Symbol);
+        Assert.Equal("IDOK", table.LookupControl(1).Symbol);
+    }
+
+    [Fact]
     public void Standard_MFC_table_has_no_application_symbols() =>
         Assert.Equal(("ID_APP_EXIT", null), (SymbolTable.Standard(mfcStandardIds: true).LookupCommand(0xE141).Symbol, SymbolTable.Standard(true).LookupControl(1000).Symbol));
 }
