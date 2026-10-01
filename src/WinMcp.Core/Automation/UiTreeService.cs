@@ -429,13 +429,19 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
     /// <summary>
     /// Menu items carry command IDs (<c>ID_*</c>), everything else control IDs. Windows' standard dialog IDs (<c>IDOK</c>,
     /// <c>IDCANCEL</c>, <c>IDC_STATIC</c>) apply only to controls of a dialog: elsewhere 1 and 2 are just small IDs
-    /// (BCGControlBar's internal windows in a real-world application showed as IDOK/IDCANCEL, M11) — and never to a
-    /// dialog itself (an embedded property page numbered 1 was called IDOK).
+    /// (BCGControlBar's internal windows in a real-world application showed as IDOK/IDCANCEL, M11). Within a dialog,
+    /// <c>IDOK</c>…<c>IDCONTINUE</c> name buttons only — a page container numbered 1 isn't IDOK — and no standard ID
+    /// names a dialog itself.
     /// </summary>
     private static SymbolMatch SymbolFor(Scope scope, RawElement e, int id) =>
         scope.Symbols is not { } table ? SymbolMatch.None
         : e.ControlType == "MenuItem" ? table.LookupCommand(id)
-        : table.LookupControl(id, standardDialogIds: scope.ParentOf(e)?.ClassName == "#32770" && e.ClassName != "#32770");
+        : table.LookupControl(id, standardDialogIds: StandardIdsApply(scope, e, id));
+
+    private static bool StandardIdsApply(Scope scope, RawElement e, int id) =>
+        scope.ParentOf(e)?.ClassName == "#32770"
+        && e.ClassName != "#32770"
+        && (id is -1 or 0xFFFF || e.ControlType == "Button"); // IDC_STATIC for any control; IDOK… for buttons
 
     /// <returns>Root-to-target chain of elements, or null when the target isn't in the tree.</returns>
     private static List<RawElement>? PathTo(RawElement node, string runtimeId)

@@ -61,6 +61,15 @@ public sealed class TestAppV2Tests : IClassFixture<TestAppSession>, IDisposable
     }
 
     [Fact]
+    public async Task Invoking_the_already_selected_tab_reports_no_change()
+    {
+        var result = await Act(new ElementLocator(Name: "Items", ControlType: "TabItem"), new ElementAction.Invoke());
+
+        Assert.False(result.Changed); // a real-world app reported changed: true here (M11)
+        Assert.Null(result.Warning);
+    }
+
+    [Fact]
     public async Task Tree_path_selection_expands_the_way_there()
     {
         await Act(new ElementLocator(AutomationId: "detailsTabs"), new ElementAction.Select("Tree"));

@@ -30,7 +30,8 @@ public sealed class MfcTreeTests
                 Element("3.6.1", "Button", "Pin", "1", className: "Button") with { NativeWindowHandle = 0x37 }),
             (Element("3.7", "Pane", "", "59649", className: "#32770") with { NativeWindowHandle = 0x38 }).With(
                 Element("3.7.1", "Button", "OK", "1", className: "Button") with { NativeWindowHandle = 0x39 },
-                Element("3.7.2", "Pane", "Viewport", "1", className: "#32770") with { NativeWindowHandle = 0x3A }), // embedded page
+                Element("3.7.2", "Pane", "Viewport", "1", className: "#32770") with { NativeWindowHandle = 0x3A }, // embedded page
+                Element("3.7.3", "Pane", "Host", "1", className: "Afx:140000000:0") with { NativeWindowHandle = 0x3B }), // page container
             Element("3.5", "MenuBar", "Application").With(
                 Element("3.5.1", "MenuItem", "Exit", "57665")));
         _automation.Extras["3.1"] = new ElementExtras("Win32", true, "", null, [], 0xE900, null);
@@ -71,6 +72,7 @@ public sealed class MfcTreeTests
         Assert.Contains(lines, l => l.Contains("Button \"Pin\" #1") && !l.Contains("IDOK")); // a BCG pane's child 1 (real-world app, M11)
         Assert.Contains(lines, l => l.Contains("Button \"OK\" #1 (IDOK)")); // inside a (form view) dialog it is IDOK
         Assert.Contains(lines, l => l.Contains("Pane \"Viewport\" #1") && !l.Contains("IDOK")); // but never a dialog itself
+        Assert.Contains(lines, l => l.Contains("Pane \"Host\" #1") && !l.Contains("IDOK")); // nor a non-button numbered 1
     }
 
     [Fact]

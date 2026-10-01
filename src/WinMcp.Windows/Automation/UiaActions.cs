@@ -161,7 +161,7 @@ internal static class UiaActions
             // M11). Where the effect is observable, check it rather than claim a change.
             if (tab is not null && !BecameSelected(tab))
                 return new ActionOutcome("uia.InvokePattern", false, Warning: IgnoredWarning("it is still not selected"));
-            if (commandInMenu && StillShown(element))
+            if (commandInMenu && StillShown(element) && !OpenedSubmenu(element))
                 return new ActionOutcome("uia.InvokePattern", false, Warning: IgnoredWarning("its menu is still open, so the command probably didn't run"));
             return new ActionOutcome("uia.InvokePattern", true);
         }
@@ -172,6 +172,8 @@ internal static class UiaActions
         }
         if (patterns.SelectionItem.PatternOrDefault is { } item)
         {
+            if (item.IsSelected.ValueOrDefault)
+                return new ActionOutcome("none", false); // already selected: nothing to do, nothing changed
             item.Select();
             if (!BecameSelected(item))
                 throw Ignored(element, "selection");
@@ -362,14 +364,25 @@ internal static class UiaActions
         return true;
     }
 
-    /// <summary>A command item inside an open (popup) menu: invoking it should close the menu.</summary>
-    private static bool IsCommandInOpenMenu(AutomationElement element)
+    /// <summary>
+    /// A menu item that isn't on a menu bar or tool bar, i.e. one in an open menu: invoking a command there should close
+    /// the menu. Menus aren't always a <c>Menu</c> element (BCG's application menu isn't), so only the exceptions are
+    /// excluded. Items that open a submenu are recognized afterwards (<see cref="OpenedSubmenu"/>).
+    /// </summary>
+    private static bool IsCommandInOpenMenu(AutomationElement element) =>
+        element.Properties.ControlType.ValueOrDefault == ControlType.MenuItem
+        && element.Parent?.Properties.ControlType.ValueOrDefault is not (ControlType.MenuBar or ControlType.ToolBar);
+
+    private static bool OpenedSubmenu(AutomationElement element)
     {
-        if (element.Properties.ControlType.ValueOrDefault != ControlType.MenuItem)
+        try
+        {
+            return element.Patterns.ExpandCollapse.PatternOrDefault?.ExpandCollapseState.ValueOrDefault == ExpandCollapseState.Expanded;
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or FlaUI.Core.Exceptions.ElementNotAvailableException)
+        {
             return false;
-        if (element.Patterns.ExpandCollapse.PatternOrDefault is { } submenu && submenu.ExpandCollapseState.ValueOrDefault != ExpandCollapseState.LeafNode)
-            return false; // opens a submenu; the menu stays open legitimately
-        return element.Parent?.Properties.ControlType.ValueOrDefault == ControlType.Menu;
+        }
     }
 
     /// <summary>Whether the element stays on screen for a moment (gone or off-screen = the menu closed). Returns as soon as it's gone.</summary>
