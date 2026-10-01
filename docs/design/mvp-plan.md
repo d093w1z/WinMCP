@@ -1,6 +1,6 @@
 # WinMCP — MVP Architecture & Development Plan
 
-Status: **Draft for review** · Date: 2026-09-30 · Scope: planning only, no implementation yet
+Status: **Historical record** — the current definition of the product is [`docs/spec/winmcp-v1.md`](../spec/winmcp-v1.md). This plan (2026-09-30) and its decision log and milestone notes (M0–M11) document how v1 was reached.
 
 > WinMCP gives AI agents *semantic* eyes and hands for native Windows applications:
 > HWND hierarchy + UI Automation tree + Win32 metadata, exposed as a small MCP tool surface.
