@@ -27,7 +27,7 @@ public sealed class WinMcpErrorCodeTests
 
     [Theory]
     [InlineData(WinMcpErrorCode.ElementDisabled, ErrorCategory.Caller)]
-    [InlineData(WinMcpErrorCode.TargetNotAllowed, ErrorCategory.Policy)]
+    [InlineData(WinMcpErrorCode.PasswordField, ErrorCategory.Policy)]
     [InlineData(WinMcpErrorCode.TargetNotResponding, ErrorCategory.Environment)]
     [InlineData(WinMcpErrorCode.InternalError, ErrorCategory.Internal)]
     public void Category_mapping(WinMcpErrorCode code, ErrorCategory expected) =>

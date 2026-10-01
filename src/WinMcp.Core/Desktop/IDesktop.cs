@@ -21,4 +21,7 @@ public interface IDesktop
     /// Immediate, unlike Windows' own hung flag, which takes ~5 s to appear.
     /// </summary>
     bool AnswersMessages(WindowHandle window);
+
+    /// <summary>Whether WinMCP itself runs elevated (then UIPI doesn't separate it from elevated targets).</summary>
+    bool CurrentProcessElevated { get; }
 }

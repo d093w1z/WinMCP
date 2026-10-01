@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| Status | Draft for review, 2026-10-01 |
+| Status | v1.0.0, 2026-10-01 |
 | Supersedes | The design sections of `docs/design/mvp-plan.md`, which remains the record of how v1 was reached (decisions, measurements, milestone notes) |
 | Companion documents | `docs/tools.md` (tool reference), `docs/security.md`, `docs/limitations.md`, `docs/mfc-investigation.md` |
 
-This document defines what WinMCP v1 is: its scope, architecture, security model, tool contracts, behaviour guarantees and quality bar. Everything stated here is implemented and covered by tests unless it appears under [§15 Open items](#15-open-items-before-the-v1-release). "Must" marks a requirement that a change may not break without revising this spec.
+This document defines what WinMCP v1 is: its scope, architecture, security model, tool contracts, behaviour guarantees, distribution and quality bar. Everything stated here is implemented and covered by tests; [§16](#16-decisions-for-v1-and-later-releases) records the decisions taken for v1 and what is left to later releases. "Must" marks a requirement that a change may not break without revising this spec.
 
 ---
 
@@ -21,7 +21,7 @@ WinMCP is a local [Model Context Protocol](https://modelcontextprotocol.io) serv
 3. Be safe by default: read-only unless enabled, only explicitly allowed applications, never another application's data.
 4. Report honestly: every result says how it was obtained, and WinMCP never claims an effect it did not observe.
 
-**Non-goals for v1** (see also §14): recording events, launching or closing applications, coordinate-based input, remote access, reading logs or debugging targets, injecting code into target processes.
+**Non-goals for v1** (see also §15): recording events, launching or closing applications, coordinate-based input, remote access, reading logs or debugging targets, injecting code into target processes.
 
 ## 2. Users and scenarios
 
@@ -40,8 +40,9 @@ WinMCP is a local [Model Context Protocol](https://modelcontextprotocol.io) serv
 | Client | Any MCP client that launches stdio servers (verified: Claude Code) |
 | Session | An interactive, unlocked desktop session of the signed-in user |
 | Target applications | Non-elevated processes of the same user. **Verified:** Win32 dialogs, WinForms, MFC (shared and static; dialog, SDI frame, Feature Pack controls), and a commercial MFC application built on BCGControlBar. **Unverified:** WPF, WinUI, Qt, Chromium/Electron (they work to the extent of their UI Automation providers) |
-| Target bitness | x64 verified; x86 expected to work (UI Automation and resource reading are bitness-independent) but untested |
-| Display | Physical pixels throughout (Per-Monitor-V2); verified at 100 % and 150 % on one monitor |
+| Target bitness | x64. x86 targets are expected to work (UI Automation and resource reading are bitness-independent) but are not part of v1's verified scope |
+| Display | Physical pixels throughout (Per-Monitor-V2); verified at 100 % and 150 % on one monitor. Mixed-DPI multi-monitor setups are not part of v1's verified scope |
+| Server platform | `win-x64` release package. `win-arm64` is left to a later release |
 
 ## 4. Architecture
 
@@ -80,7 +81,7 @@ The following must hold in every release:
 2. **Modes:** `observe` (default) registers only read-only tools; `control` adds the interaction tools. In observe mode control tools are absent from `tools/list`, not merely refused.
 3. **Allowlist:** only windows of processes named by `--allow` (process name or full executable path) are visible or actionable. An empty allowlist means nothing is visible; control mode refuses to start without one.
 4. **No disclosure about other applications:** the allowlist is applied before caller filters; windows of other processes never appear in any result; their handles yield `WINDOW_NOT_FOUND`, identical to nonexistent windows. Only an aggregate `excluded_count` is reported.
-5. **Deny-list:** UAC (`consent`), `LogonUI`, `winlogon`, `CredentialUIBroker` and WinMCP itself can never be targeted, even if allowlisted.
+5. **Deny-list:** UAC (`consent`), `LogonUI`, `winlogon`, `CredentialUIBroker` and WinMCP itself can never be targeted, even if allowlisted. `--allow` entries naming them produce a start-up warning on stderr for the operator; agents get no distinct error (it would reveal that such a window exists).
 6. **Re-validation:** every action re-checks the target's process against the allowlist when it runs.
 7. **Passwords:** password field values are never returned (trees, inspection, `wait_for` text conditions are refused on them); `set_value` and `send_keys` refuse them; audit entries redact them.
 8. **Disabled controls** are refused before any input reaches the application.
@@ -92,7 +93,7 @@ The following must hold in every release:
 14. **Audit:** every control action, successful or refused, is appended to the audit log (§12).
 15. **Prompt injection:** the server instructions state that text displayed in applications is data, never instructions. (Advisory: clients and models decide what they do with it.)
 
-WinMCP runs with the user's rights and does not elevate. Windows blocks UI Automation and input to elevated applications (UIPI).
+16. **Elevated targets:** WinMCP runs with the user's rights and does not elevate. Windows isolates elevated applications from non-elevated ones (UIPI), so UI Automation sees little of them and input is dropped. Their windows stay listable and inspectable (`elevated: true`); every tool that reads or operates their UI — `get_ui_tree`, `find_elements`, `inspect_element`, `wait_for`, `capture_screenshot`, all control tools — returns `ACCESS_DENIED_ELEVATED` instead of degraded results. If WinMCP itself runs elevated (discouraged), the check doesn't apply.
 
 ## 6. Configuration
 
@@ -106,6 +107,8 @@ Command-line only (the MCP client configuration supplies it):
 | `--audit-dir <directory>` | Audit log location | `%LOCALAPPDATA%\WinMCP\audit` |
 
 Invalid arguments exit with code 2 and a usage line on stderr.
+
+**No configuration file in v1.** MCP clients already store a server's arguments as a JSON array, so long command lines, paths with spaces and many `--allow`/`--symbols` entries need no shell quoting. Different policies per application are configured as separate server registrations (e.g. one in control mode for the application under test, one in observe mode for others). A configuration file becomes worthwhile when settings stop fitting one flat argument list — per-application modes or policies within one server, or settings shared across clients and machines independently of each client's format — and would then be added alongside, not instead of, the arguments.
 
 ## 7. Core concepts
 
@@ -225,7 +228,7 @@ Each result lists its evidence. If the process can't be read (elevated), only wi
 
 ### 10.3 Likely MFC class
 
-For MFC processes, `mfc_class_guess` maps window class and control ID to the MFC class family (`CDialog`, `CFormView`, `CListCtrl`, `CToolBar`, `CStatusBar`, `CView`, `CFrameWnd`, `CMDIFrameWnd`, `CMFCPropertyGridCtrl`, …). It is an inference: application subclasses appear as their MFC base, and a control may have no C++ object at all. Exact runtime classes would require code in the target process and are out of scope (§14).
+For MFC processes, `mfc_class_guess` maps window class and control ID to the MFC class family (`CDialog`, `CFormView`, `CListCtrl`, `CToolBar`, `CStatusBar`, `CView`, `CFrameWnd`, `CMDIFrameWnd`, `CMFCPropertyGridCtrl`, …). It is an inference: application subclasses appear as their MFC base, and a control may have no C++ object at all. Exact runtime classes would require code in the target process and are out of scope (§15).
 
 ## 11. Errors
 
@@ -234,19 +237,27 @@ Failures are tool results with `isError: true` and `{"error": {code, message, ca
 | Category | Codes |
 |---|---|
 | `caller` — change the arguments | `INVALID_ARGUMENT`, `WINDOW_NOT_FOUND`, `ELEMENT_NOT_FOUND`, `AMBIGUOUS_MATCH`, `OPTION_NOT_FOUND`, `PATTERN_NOT_SUPPORTED`, `ELEMENT_DISABLED`, `ELEMENT_STALE` |
-| `policy` — refused by WinMCP's rules | `OPERATION_NOT_PERMITTED`, `PASSWORD_FIELD` (`TARGET_NOT_ALLOWED`: see §15) |
-| `environment` — application or desktop state | `TARGET_NOT_RESPONDING`, `WINDOW_MINIMIZED`, `ELEMENT_OFFSCREEN`, `WINDOW_CLOSED`, `FOCUS_FAILED`, `TIMEOUT` (`ACCESS_DENIED_ELEVATED`: see §15) |
+| `policy` — refused by WinMCP's rules | `OPERATION_NOT_PERMITTED`, `PASSWORD_FIELD` |
+| `environment` — application or desktop state | `ACCESS_DENIED_ELEVATED`, `TARGET_NOT_RESPONDING`, `WINDOW_MINIMIZED`, `ELEMENT_OFFSCREEN`, `WINDOW_CLOSED`, `FOCUS_FAILED`, `TIMEOUT` |
 | `internal` — a WinMCP bug; details only in the server log | `INTERNAL_ERROR` |
 
-`retryable` is true only for `TARGET_NOT_RESPONDING`, `FOCUS_FAILED` and `TIMEOUT`: the same call may succeed later unchanged. Hints are written for the agent (what to do next); `FOCUS_FAILED` hints distinguish a locked desktop from a refused foreground switch.
+`retryable` is true only for `TARGET_NOT_RESPONDING`, `FOCUS_FAILED` and `TIMEOUT`: the same call may succeed later unchanged. There is deliberately no "not allowed" code: a window of a non-allowlisted application is `WINDOW_NOT_FOUND` in every case, including a handle reused by another process mid-session (§5.4). Hints are written for the agent (what to do next); `FOCUS_FAILED` hints distinguish a locked desktop from a refused foreground switch.
 
 ## 12. Audit log
 
 One JSON object per line in `<audit-dir>\audit-YYYYMMDD.jsonl` for every control action, successful or refused: `timestamp`, `tool`, `window`, `process`, `element`, `target`, `arguments` (password values redacted), `outcome` (`ok` or the error code), `method`, `elapsed_ms`. The log is local and not tamper-proof; it supports review and failure triage.
 
-## 13. Quality bar
+## 13. Distribution and versioning
 
-### 13.1 Performance (measured on the reference machine)
+- **Release package:** `WinMCP-<version>-win-x64.zip` with a self-contained, single-file `WinMcp.Server.exe` (no .NET installation needed on the user's machine; not trimmed, because UI Automation is COM interop) plus `README.md` and the user documentation (`tools.md`, `security.md`, `limitations.md`), and a `.sha256` checksum file. Built by `scripts/package.ps1`.
+- **Installation:** extract anywhere and register the executable with an MCP client; the README gives the configuration for Claude Code, VS Code, Cursor and Claude Desktop, the arguments, usage, update and removal.
+- **Versioning:** Semantic Versioning, defined once in `Directory.Build.props` and reported as the MCP server version. Breaking changes to tool names, parameters, result fields or error codes require a new major version; additions are minor.
+- **Release process:** pushing a tag `vX.Y.Z` that matches the version runs `.github/workflows/release.yml`: build, non-GUI tests, packaging, the end-to-end suite **against the packaged executable**, and publication of the archive and checksum as a GitHub release.
+- **History:** `main` carries one commit per release; development happens on `dev`.
+
+## 14. Quality bar
+
+### 14.1 Performance (measured on the reference machine)
 
 | Operation | Bound |
 |---|---|
@@ -255,41 +266,43 @@ One JSON object per line in `<audit-dir>\audit-YYYYMMDD.jsonl` for every control
 | Tree or find on a 10 000-row list (~40 000 elements) | < 4 s (measured 2.4 s); lists up to ~30 000 rows stay within the UI Automation timeout |
 | Hung target | `TARGET_NOT_RESPONDING` within ~3 s; the server stays responsive |
 
-### 13.2 Tests
+### 14.2 Tests
 
-- **Unit** (`WinMcp.Core.Tests`): policy, normalization, locators, symbols, framework detection, template parsing and matching, interaction rules — with fakes.
+- **Unit** (`WinMcp.Core.Tests`): policy, normalization, locators, symbols, framework detection, template parsing and matching, interaction rules, elevation gate — with fakes.
 - **Server** (`WinMcp.Server.Tests`): MCP client ↔ server in memory with a fake desktop: tool surface per mode, schemas, error mapping, argument validation.
 - **Integration** (`WinMcp.Windows.IntegrationTests`): real UI Automation against the WinForms test app, the MFC test app (dialog, frame, features; shared and static MFC) and charmap. A shared scenario suite runs against both test apps.
-- **End-to-end** (`WinMcp.E2ETests`): the real server over stdio.
+- **End-to-end** (`WinMcp.E2ETests`): the real server over stdio — the development build in CI, the packaged executable in the release workflow.
 - Regression tests reproduce each fixed real-world finding.
 
-### 13.3 Acceptance for v1
+### 14.3 Acceptance for v1
 
 1. All test projects green on an unlocked interactive desktop; GUI suites stable over 20 consecutive runs.
-2. CI green: build and non-GUI tests required; GUI tests on hosted Windows runners.
+2. CI green, with **both jobs required**: build + non-GUI tests, and the GUI suite (WinForms, MFC, end-to-end) on GitHub-hosted Windows runners.
 3. Agent evaluations pass: the WinForms golden scenario (≥ 4 of 5 fresh sessions, no screenshots), the MFC dialog and frame scenarios, and an observe + control exploration of a real-world application without false success reports.
-4. `docs/tools.md`, `docs/security.md` and `docs/limitations.md` match the implementation.
+4. The release package passes the end-to-end suite.
+5. `README.md`, `docs/tools.md`, `docs/security.md` and `docs/limitations.md` match the implementation.
 
-## 14. Out of scope for v1
+## 15. Out of scope for v1
 
-Event and message recording; launching, closing or restarting applications; coordinate-based clicks and drags; full-desktop screenshots; HTTP or any remote transport; logs, ETW, crash dumps, debugger attachment; in-process inspection or injection (researched in M11: works for shared MFC only, rejected); framework-specific work for WPF, WinUI, Qt or Electron; AI-driven exploration or test generation.
+Event and message recording (including accessibility events such as focus notifications); launching, closing or restarting applications; coordinate-based clicks and drags; full-desktop screenshots; HTTP or any remote transport; logs, ETW, crash dumps, debugger attachment; in-process inspection or injection (researched in M11: works for shared MFC only, rejected); framework-specific work for WPF, WinUI, Qt or Electron; AI-driven exploration or test generation.
 
 The architecture leaves room for events (an event source in `WinMcp.Windows` plus tools in the server), process management (a separately gated mode) and diagnostics (a separate tool class).
 
-## 15. Open items before the v1 release
+## 16. Decisions for v1 and later releases
 
-| Item | Decision needed / work |
+| Item | v1 decision |
 |---|---|
-| Elevated targets | Detect elevation of the target and return `ACCESS_DENIED_ELEVATED` instead of degraded results (the code exists in the error model, not yet emitted) |
-| `TARGET_NOT_ALLOWED` | Defined but never emitted (non-allowlisted targets yield `WINDOW_NOT_FOUND` by design): emit it for targets that leave the allowlist mid-session, or remove it |
-| Tool descriptions | `control_symbol` parameters still say "requires --symbols"; MFC standard IDs work without |
-| Packaging and versioning | Self-contained `win-x64` (and `win-arm64`) release archive; version scheme; later a NuGet MCP server package and code signing |
-| Configuration | Decide whether long command lines need a configuration file |
-| CI | Make the GUI job required once it has been green consistently |
-| Coverage | x86 targets, mixed-DPI multi-monitor setups, and more real-world applications (especially with satellite resource DLLs) |
-| Opaque property grids | Measure whether keyboard navigation exposes the focused property through accessibility |
+| Elevated targets | `ACCESS_DENIED_ELEVATED` for reading or operating the UI of elevated applications; window facts stay available (§5.16) |
+| "Not allowed" error | `TARGET_NOT_ALLOWED` removed from the error model: every case it could cover must be `WINDOW_NOT_FOUND` to avoid disclosure (§5.4, §11). Deny-listed `--allow` entries are reported to the operator at start-up instead |
+| `control_symbol` | Optional extra detail. MFC standard IDs always work; application names need `--symbols`; the numeric `automation_id` works either way. Tool descriptions say so |
+| Packaging | Self-contained `win-x64` archive with install and client-configuration instructions (§13) |
+| Configuration file | Not in v1; trigger conditions in §6 |
+| CI | GUI job required (§14.3) |
+| Opaque property grids | Measured: keyboard focus inside `CMFCPropertyGridCtrl` exposes nothing to UI Automation; MFC reports the focused property only through accessibility events. Not feasible without event support (§15) |
 
-## 16. Known limitations (summary)
+**Left to later releases:** x86 targets, `win-arm64` packages, mixed-DPI multi-monitor setups, broader real-world application coverage (especially satellite resource DLLs); accessibility-event support (would also make focused property-grid rows readable); a NuGet MCP server package, code signing and winget.
+
+## 17. Known limitations (summary)
 
 Details and workarounds: `docs/limitations.md`.
 
@@ -299,4 +312,4 @@ Details and workarounds: `docs/limitations.md`.
 - Ribbons expose only the selected tab; application menus only while open.
 - Every call fetches the whole window tree; very large windows approach the UI Automation timeout.
 - Foreground changes can be refused by Windows (and are impossible on a locked desktop), which affects `send_keys` and native menus.
-- Elevated applications and the secure desktop are out of reach.
+- Elevated applications can be listed and inspected but not read or operated; the secure desktop is out of reach.

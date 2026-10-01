@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 
 namespace WinMcp.E2ETests;
 
@@ -14,7 +15,8 @@ public sealed class ServerHandshakeTests
         await using var _ = client;
 
         Assert.Equal("WinMCP", client.ServerInfo.Name);
-        Assert.Equal("0.1.0", client.ServerInfo.Version);
+        // Same Directory.Build.props version as this test assembly.
+        Assert.Equal(typeof(ServerHandshakeTests).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion.Split('+')[0], client.ServerInfo.Version);
 
         var stopwatch = Stopwatch.StartNew();
         while (!stderr.Any(line => line.Contains("Application started")) && stopwatch.Elapsed < TimeSpan.FromSeconds(5))

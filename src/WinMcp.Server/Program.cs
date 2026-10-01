@@ -28,6 +28,9 @@ catch (ArgumentException ex)
     return 2;
 }
 
+foreach (var entry in new TargetPolicy(options, Environment.ProcessId).IneffectiveAllowEntries)
+    Console.Error.WriteLine($"winmcp: warning: --allow {entry} has no effect; security-sensitive system UI is never accessible.");
+
 // Arguments are WinMCP's own; don't let the host reinterpret them as configuration.
 var builder = Host.CreateApplicationBuilder();
 

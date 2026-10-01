@@ -47,4 +47,9 @@ public sealed class TargetPolicyTests
     [Fact]
     public void WinMcp_itself_is_never_allowed() =>
         Assert.False(Policy("WinMcp.Server").IsAllowed(Process("WinMcp.Server", pid: OwnPid)));
+
+    [Fact]
+    public void Allow_entries_for_deny_listed_processes_are_reported_as_ineffective() =>
+        Assert.Equal(["consent.exe", @"C:\Windows\System32\LogonUI.exe"],
+            Policy("WinMcp.TestApp", "consent.exe", @"C:\Windows\System32\LogonUI.exe").IneffectiveAllowEntries);
 }

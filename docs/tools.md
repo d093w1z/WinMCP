@@ -96,8 +96,8 @@ Tool failures are results with `isError: true` and
 | Category | Meaning | Codes |
 |----------|---------|-------|
 | `caller` | Change the arguments | `INVALID_ARGUMENT`, `WINDOW_NOT_FOUND`, `ELEMENT_NOT_FOUND`, `AMBIGUOUS_MATCH`, `OPTION_NOT_FOUND`, `PATTERN_NOT_SUPPORTED`, `ELEMENT_DISABLED`, `ELEMENT_STALE` |
-| `policy` | Refused by WinMCP's rules | `TARGET_NOT_ALLOWED`, `OPERATION_NOT_PERMITTED`, `PASSWORD_FIELD` |
+| `policy` | Refused by WinMCP's rules | `OPERATION_NOT_PERMITTED`, `PASSWORD_FIELD` |
 | `environment` | The application or desktop state | `ACCESS_DENIED_ELEVATED`, `TARGET_NOT_RESPONDING`, `WINDOW_MINIMIZED`, `ELEMENT_OFFSCREEN`, `WINDOW_CLOSED`, `FOCUS_FAILED`, `TIMEOUT` |
 | `internal` | A WinMCP bug (details in the server log, never in the result) | `INTERNAL_ERROR` |
 
-`retryable: true` means the **same** call may succeed later unchanged: only `TARGET_NOT_RESPONDING`, `FOCUS_FAILED`, `TIMEOUT`. Windows of non-allowlisted applications are reported as `WINDOW_NOT_FOUND`, indistinguishable from windows that don't exist.
+`retryable: true` means the **same** call may succeed later unchanged: only `TARGET_NOT_RESPONDING`, `FOCUS_FAILED`, `TIMEOUT`. Windows of non-allowlisted applications are reported as `WINDOW_NOT_FOUND`, indistinguishable from windows that don't exist. Applications running elevated (as administrator) are listed and inspectable (`elevated: true`), but reading or operating their UI — trees, finds, `inspect_element`, `wait_for`, screenshots, control tools — returns `ACCESS_DENIED_ELEVATED` unless WinMCP itself runs elevated.

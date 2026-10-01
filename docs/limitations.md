@@ -36,9 +36,9 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 
 ## Elevation, sessions and desktops
 
-- WinMCP runs at the user's normal integrity level. **Windows' UIPI blocks UI Automation and input to elevated (administrator) applications**; such processes show `elevated: null` or `true`. Running WinMCP itself elevated is possible but not recommended. A clear `ACCESS_DENIED_ELEVATED` error is planned.
+- WinMCP runs at the user's normal integrity level. **Windows' UIPI blocks UI Automation and input to elevated (administrator) applications**; such processes show `elevated: true` (or `null` when even that can't be read). Their windows stay listable and inspectable; reading or operating their UI returns `ACCESS_DENIED_ELEVATED`. Running WinMCP itself elevated lifts the restriction but is not recommended.
 - The secure desktop (UAC prompts, lock screen) is never accessible, by Windows design and by WinMCP's deny-list.
-- GUI tests need an unlocked, interactive desktop. GitHub's hosted Windows runners provide one: the whole GUI suite, MFC included, ran there (2026-10-01; the only failure was a test assuming a non-elevated session — runners run as administrator with UAC off). The CI job stays marked experimental until it has been green for a while.
+- GUI tests need an unlocked, interactive desktop. GitHub's hosted Windows runners provide one, and the GUI suite (MFC included) is a required CI job. Runners run as administrator with UAC off, so the elevation behaviour can't be exercised there.
 
 ## Display scaling
 
@@ -55,7 +55,7 @@ What WinMCP can't do (yet), measured on Windows 11 26100 with .NET 10 unless not
 - **Detection**: shared MFC is certain (loaded `mfc140u.dll`); static MFC is recognized by `Afx` window classes or MFC class names inside the executable. If the process can't be read (elevated), only window classes are used.
 - **`mfc_class_guess` is an inference** from window class and control ID. The exact C++ class needs code inside the process; WinMCP doesn't do that (see `docs/mfc-investigation.md`). Application subclasses appear as their MFC base (`CDialog` for `CMainDlg`), Feature Pack subclasses of standard controls as the base control (`CButton` for `CMFCColorButton`).
 - **Dialog templates** are found in the executable, the application's own DLLs and `<exe folder>\<LCID>\*.dll`. Templates in resource DLLs loaded from elsewhere, or created in memory at run time, aren't found. Identical templates are reported as `alternatives` rather than guessed.
-- **Opaque Feature Pack controls**: `CMFCPropertyGridCtrl` exposes no rows (only its header); `CMFCColorButton` has no name or value; `CMFCEditBrowseCtrl`'s browse button isn't exposed. Use screenshots to read them.
+- **Opaque Feature Pack controls**: `CMFCPropertyGridCtrl` exposes no rows (only its header) — not even with keyboard focus inside it: MFC announces the focused property only through accessibility events, which v1 doesn't listen to; `CMFCColorButton` has no name or value; `CMFCEditBrowseCtrl`'s browse button isn't exposed. Use screenshots to read them.
 - **`CMFCMaskedEdit`** accepts `set_value` only in its display format (`(555) 123-4567`, not `5551234567`) and reports its value without the literals; a rejected value is reported as `changed: false`.
 - **Native menus open only in the active window**: `invoke`/`set_expanded` on a Win32 menu item first activates the window (as a click would). When Windows refuses — e.g. the desktop is locked — the result is `FOCUS_FAILED`.
 - A CView's own drawing is opaque like any custom-drawn control.

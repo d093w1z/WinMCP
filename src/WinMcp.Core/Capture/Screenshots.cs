@@ -51,7 +51,7 @@ public sealed class ScreenshotService(WindowQuery windows, UiTreeService tree, I
         string? reference = null;
         if (element is null && locator.IsEmpty)
         {
-            window = windows.ResolveTopLevel(hwnd).Window;
+            window = windows.ResolveOperable(hwnd).Window;
             region = window.Bounds;
         }
         else

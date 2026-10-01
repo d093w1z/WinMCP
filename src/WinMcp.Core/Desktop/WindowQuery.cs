@@ -93,6 +93,23 @@ public sealed class WindowQuery(IDesktop desktop, TargetPolicy policy, NativeApp
     }
 
     /// <summary>
+    /// <see cref="ResolveTopLevel"/> for tools that read or operate a window's UI (trees, actions, keys, screenshots).
+    /// Windows' UIPI isolates elevated processes from non-elevated ones: UI Automation sees little or nothing of them
+    /// and input is dropped, so instead of degraded, misleading results the caller gets ACCESS_DENIED_ELEVATED.
+    /// Window facts (list_windows, inspect_window) stay available.
+    /// </summary>
+    public WindowDetails ResolveOperable(string? hwnd)
+    {
+        var details = ResolveTopLevel(hwnd);
+        if (details.Window.Process.Elevated == true && !desktop.CurrentProcessElevated)
+            throw new WinMcpException(new WinMcpError(
+                WinMcpErrorCode.AccessDeniedElevated,
+                $"{details.Window.Process.Name} runs elevated (as administrator); Windows doesn't let a non-elevated WinMCP read or operate its UI.",
+                Hint: "Ask the user to run the application without administrator rights. Running WinMCP itself elevated would also work but removes a safety barrier and isn't recommended."));
+        return details;
+    }
+
+    /// <summary>
     /// The single gate for every tool that takes a window handle: well-formed, existing, allowlisted, top-level.
     /// A non-allowlisted window yields the same WINDOW_NOT_FOUND as a nonexistent one.
     /// </summary>

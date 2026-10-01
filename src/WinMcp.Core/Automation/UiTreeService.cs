@@ -306,7 +306,7 @@ public sealed class UiTreeService(WindowQuery windows, IUiAutomation automation,
         if (hwnd is null && key is null)
             throw Invalid("Give 'hwnd' (from list_windows) or 'element' (a ref from get_ui_tree/find_elements).");
 
-        var window = windows.ResolveTopLevel(hwnd ?? key!.Value.Window.ToString());
+        var window = windows.ResolveOperable(hwnd ?? key!.Value.Window.ToString());
         var handle = window.Window.Hwnd;
         if (key is { } k && k.Window != handle)
             throw Invalid($"Element '{element}' belongs to window {k.Window}, not {handle}.");

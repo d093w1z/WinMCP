@@ -14,7 +14,6 @@ public enum WinMcpErrorCode
     ElementStale,
 
     // Policy
-    TargetNotAllowed,
     OperationNotPermitted,
     PasswordField,
 
@@ -44,7 +43,6 @@ public static class WinMcpErrorCodeExtensions
         WinMcpErrorCode.ElementDisabled or
         WinMcpErrorCode.ElementStale => ErrorCategory.Caller,
 
-        WinMcpErrorCode.TargetNotAllowed or
         WinMcpErrorCode.OperationNotPermitted or
         WinMcpErrorCode.PasswordField => ErrorCategory.Policy,
 

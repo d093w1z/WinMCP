@@ -21,6 +21,8 @@ internal sealed class FakeDesktop(params WindowInfo[] windows) : IDesktop
     /// <summary>Mirrors <see cref="WindowDetails.Responding"/> unless overridden per window.</summary>
     public HashSet<WindowHandle> NotAnsweringMessages { get; } = [];
 
+    public bool CurrentProcessElevated { get; set; }
+
     public bool AnswersMessages(WindowHandle window) =>
         !NotAnsweringMessages.Contains(window) && (GetWindowDetails(window)?.Responding ?? false);
 

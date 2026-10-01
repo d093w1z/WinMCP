@@ -21,7 +21,7 @@ public sealed class ControlTools(InteractionService interaction)
         [Description("Exact AutomationId.")] string? automation_id = null,
         [Description("Exact element name.")] string? name = null,
         [Description("UI Automation control type, e.g. Button.")] string? control_type = null,
-        [Description("resource.h name, e.g. 'IDC_BUTTON_APPLY' (requires --symbols).")] string? control_symbol = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
         CancellationToken cancellationToken = default) =>
         interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.Invoke(), cancellationToken);
 
@@ -35,7 +35,7 @@ public sealed class ControlTools(InteractionService interaction)
         [Description("Exact AutomationId.")] string? automation_id = null,
         [Description("Exact element name (for edits, usually their label).")] string? name = null,
         [Description("UI Automation control type, e.g. Edit.")] string? control_type = null,
-        [Description("resource.h name, e.g. 'IDC_EDIT_NAME' (requires --symbols).")] string? control_symbol = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
         CancellationToken cancellationToken = default) =>
         interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.SetValue(value), cancellationToken);
 
@@ -50,7 +50,7 @@ public sealed class ControlTools(InteractionService interaction)
         [Description("Exact AutomationId of the container.")] string? automation_id = null,
         [Description("Exact name of the container (usually its label).")] string? name = null,
         [Description("UI Automation control type, e.g. ComboBox, List, Tab.")] string? control_type = null,
-        [Description("resource.h name, e.g. 'IDC_COMBO_TYPE' (requires --symbols).")] string? control_symbol = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
         CancellationToken cancellationToken = default) =>
         interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.Select(option), cancellationToken);
 
@@ -64,7 +64,7 @@ public sealed class ControlTools(InteractionService interaction)
         [Description("Exact AutomationId.")] string? automation_id = null,
         [Description("Exact element name.")] string? name = null,
         [Description("UI Automation control type, e.g. CheckBox.")] string? control_type = null,
-        [Description("resource.h name (requires --symbols).")] string? control_symbol = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
         CancellationToken cancellationToken = default) =>
         interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.SetToggle(ActionArguments.ParseToggle(state)), cancellationToken);
 
@@ -78,7 +78,7 @@ public sealed class ControlTools(InteractionService interaction)
         [Description("Exact AutomationId.")] string? automation_id = null,
         [Description("Exact element name, e.g. a tree node's text.")] string? name = null,
         [Description("UI Automation control type, e.g. TreeItem, MenuItem, ComboBox.")] string? control_type = null,
-        [Description("resource.h name (requires --symbols).")] string? control_symbol = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
         CancellationToken cancellationToken = default) =>
         interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.SetExpanded(ActionArguments.ParseExpanded(state)), cancellationToken);
 
@@ -98,7 +98,7 @@ public sealed class ControlTools(InteractionService interaction)
         [Description("Exact AutomationId of the element to focus (with hwnd).")] string? automation_id = null,
         [Description("Exact name of the element to focus (with hwnd).")] string? name = null,
         [Description("UI Automation control type of the element to focus (with hwnd).")] string? control_type = null,
-        [Description("resource.h name of the element to focus (requires --symbols).")] string? control_symbol = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
         CancellationToken cancellationToken = default) =>
         interaction.SendKeysAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), KeyInputParser.Parse(text, keys), cancellationToken);
 

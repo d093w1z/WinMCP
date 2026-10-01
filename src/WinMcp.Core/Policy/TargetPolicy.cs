@@ -33,6 +33,13 @@ public sealed class TargetPolicy
 
     public IReadOnlyList<string> AllowList { get; }
 
+    /// <summary>
+    /// Allowlist entries that name a deny-listed process: they never take effect. Reported to the operator at start-up
+    /// (agents get no error for them: a distinct error would reveal that such a window exists).
+    /// </summary>
+    public IReadOnlyList<string> IneffectiveAllowEntries =>
+        AllowList.Where(entry => DeniedProcessNames.Contains(Path.GetFileNameWithoutExtension(entry))).ToList();
+
     public bool IsAllowed(ProcessInfo process)
     {
         if (process.Pid == _ownPid || DeniedProcessNames.Contains(process.Name))

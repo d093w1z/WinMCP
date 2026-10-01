@@ -64,6 +64,14 @@ public sealed unsafe class Win32Desktop : IDesktop
 
     public bool AnswersMessages(WindowHandle window) => Win32Controls.Ping((nint)window.Value);
 
+    public bool CurrentProcessElevated { get; } = ReadCurrentElevation();
+
+    private static bool ReadCurrentElevation()
+    {
+        using var self = PInvoke.OpenProcess_SafeHandle(PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)Environment.ProcessId);
+        return !self.IsInvalid && ReadElevation(self) == true;
+    }
+
     public IReadOnlyList<ChildWindow> GetChildWindows(WindowHandle window, bool includeHidden = false)
     {
         using var dpi = DpiScope.Enter();

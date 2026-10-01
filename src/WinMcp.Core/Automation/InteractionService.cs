@@ -43,7 +43,7 @@ public sealed class InteractionService(
             }
             else
             {
-                window = windows.ResolveTopLevel(hwnd).Window;
+                window = windows.ResolveOperable(hwnd).Window;
             }
 
             if (await tree.FocusedElementAsync(window.Hwnd, cancellationToken) is { IsPassword: true } focused)

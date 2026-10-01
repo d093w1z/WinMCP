@@ -7,9 +7,9 @@ WinMCP lets an AI agent read and operate desktop applications as the signed-in u
 | Control | What it does | Default |
 |---------|--------------|---------|
 | **Transport** | stdio only: the MCP client starts WinMCP as a child process. No network listener exists. | — |
-| **Mode** (`--mode`) | `observe`: read-only tools only. `control`: adds `invoke`, `set_value`, `select_option`, `set_toggle`, `send_keys`. In observe mode control tools are **not registered**, so a client can't even see them. | `observe` |
+| **Mode** (`--mode`) | `observe`: read-only tools only. `control`: adds `invoke`, `set_value`, `select_option`, `set_toggle`, `set_expanded`, `send_keys`. In observe mode control tools are **not registered**, so a client can't even see them. | `observe` |
 | **Allowlist** (`--allow`) | Process names or full executable paths. Only windows of these processes are ever visible or actionable. `--mode control` refuses to start without one. | empty: **nothing** is visible |
-| **Deny-list** | UAC (`consent`), `LogonUI`, `winlogon`, `CredentialUIBroker`, and WinMCP itself can never be targeted, even if allowlisted. | always on |
+| **Deny-list** | UAC (`consent`), `LogonUI`, `winlogon`, `CredentialUIBroker`, and WinMCP itself can never be targeted, even if allowlisted (the server warns at start-up about such `--allow` entries). | always on |
 | **Audit log** | Every control action — successful or refused — is appended as JSON to `%LOCALAPPDATA%\WinMCP\audit\audit-YYYYMMDD.jsonl` (tool, window, process, element, arguments, outcome, method, duration). | always on (`--audit-dir` to relocate) |
 
 Configuration comes only from the command line the user (or their MCP client config) supplies. No tool can change the mode, the allowlist, or read files of its choosing (`resource.h` paths for `--symbols` are operator configuration, never tool arguments).
@@ -36,6 +36,6 @@ Text shown inside applications (window titles, labels, document content) is retu
 
 ## What is out of scope
 
-- WinMCP runs with the user's own rights. It doesn't elevate, and Windows prevents it from controlling elevated applications (UIPI). Running WinMCP elevated would lift that barrier — don't, unless you understand the consequence.
+- WinMCP runs with the user's own rights. It doesn't elevate, and Windows prevents it from controlling elevated applications (UIPI); WinMCP reports `ACCESS_DENIED_ELEVATED` for them instead of degraded results. Running WinMCP elevated would lift that barrier — don't, unless you understand the consequence.
 - Tool annotations (`readOnlyHint`, `destructiveHint`, …) are hints for MCP clients' confirmation prompts, not enforcement.
 - The audit log is local and not tamper-proof; it records what WinMCP did, for troubleshooting and review.
