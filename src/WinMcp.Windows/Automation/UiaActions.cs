@@ -365,13 +365,25 @@ internal static class UiaActions
     }
 
     /// <summary>
-    /// A menu item that isn't on a menu bar or tool bar, i.e. one in an open menu: invoking a command there should close
-    /// the menu. Menus aren't always a <c>Menu</c> element (BCG's application menu isn't), so only the exceptions are
-    /// excluded. Items that open a submenu are recognized afterwards (<see cref="OpenedSubmenu"/>).
+    /// A menu item in an open menu, by its ancestors' control types (rules in <see cref="MenuStructure"/>): invoking a
+    /// command there should close the menu. Items that open a submenu are recognized afterwards (<see cref="OpenedSubmenu"/>).
     /// </summary>
-    private static bool IsCommandInOpenMenu(AutomationElement element) =>
-        element.Properties.ControlType.ValueOrDefault == ControlType.MenuItem
-        && element.Parent?.Properties.ControlType.ValueOrDefault is not (ControlType.MenuBar or ControlType.ToolBar);
+    private static bool IsCommandInOpenMenu(AutomationElement element)
+    {
+        if (element.Properties.ControlType.ValueOrDefault != ControlType.MenuItem)
+            return false;
+        var ancestors = new List<string>();
+        for (var e = element.Parent; e is not null && ancestors.Count < MenuAncestorDepth; e = e.Parent)
+        {
+            var type = e.Properties.ControlType.ValueOrDefault;
+            ancestors.Add(type.ToString());
+            if (type is ControlType.Menu or ControlType.Window)
+                break;
+        }
+        return MenuStructure.IsCommandInOpenMenu(ancestors);
+    }
+
+    private const int MenuAncestorDepth = 6;
 
     private static bool OpenedSubmenu(AutomationElement element)
     {
