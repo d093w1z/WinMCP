@@ -101,9 +101,11 @@ public sealed class MfcFrameTests : IClassFixture<MfcFrameSession>, IDisposable
     {
         RequireApp();
         var file = new ElementLocator(Name: "File", ControlType: "MenuItem");
-        await Act(file, new ElementAction.SetExpanded(true));
+        var expand = await Act(file, new ElementAction.SetExpanded(true));
         try
         {
+            Assert.Equal("expanded", expand.StateAfter); // native menus open asynchronously; read back too early it said "collapsed"
+
             var exit = await _services.Tree.WaitAsync(Hwnd, null, new ElementLocator(ControlSymbol: "ID_APP_EXIT"), WaitCondition.Exists, null, 3000, Token);
 
             Assert.Equal("Exit", exit.Element!.Name);

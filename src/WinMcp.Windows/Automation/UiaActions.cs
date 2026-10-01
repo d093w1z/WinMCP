@@ -59,8 +59,26 @@ internal static class UiaActions
         if (state == target)
             return new ActionOutcome("none", false, StateAfter: Wire(state));
         if (expanded) pattern.Expand(); else pattern.Collapse();
-        return new ActionOutcome("uia.ExpandCollapsePattern", true, StateAfter: Wire(pattern.ExpandCollapseState.Value));
+        return new ActionOutcome("uia.ExpandCollapsePattern", true, StateAfter: Wire(SettledState(pattern, target)));
     }
+
+    /// <summary>
+    /// Native menus open asynchronously: right after Expand() an MFC menu bar item still reads "collapsed", although
+    /// the popup appears a moment later (found in the M11 agent evaluation). Wait briefly for the requested state.
+    /// </summary>
+    private static ExpandCollapseState SettledState(FlaUI.Core.Patterns.IExpandCollapsePattern pattern, ExpandCollapseState target)
+    {
+        var wait = System.Diagnostics.Stopwatch.StartNew();
+        var state = pattern.ExpandCollapseState.Value;
+        while (state != target && wait.Elapsed < StateSettleTime)
+        {
+            Thread.Sleep(25);
+            state = pattern.ExpandCollapseState.Value;
+        }
+        return state;
+    }
+
+    private static readonly TimeSpan StateSettleTime = TimeSpan.FromMilliseconds(1000);
 
     /// <summary>
     /// Selects a tree node by path ("Documents > Reports > Q1.txt"), expanding each ancestor: children of collapsed
