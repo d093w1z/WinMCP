@@ -104,6 +104,8 @@ internal static class UiaActions
         if (item.IsSelected.ValueOrDefault)
             return new ActionOutcome("none", false, ValueAfter: string.Join(" > ", path));
         item.Select();
+        if (!BecameSelected(item))
+            throw Ignored(node, "selection");
         return new ActionOutcome("uia.SelectionItemPattern", true, ValueAfter: string.Join(" > ", path));
     }
 
@@ -140,6 +142,8 @@ internal static class UiaActions
         {
             var toolbar = ToolbarHost(element);
             var focusBefore = toolbar != 0 ? Win32Controls.FocusedWindow(toolbar) : 0;
+            var tab = patterns.SelectionItem.PatternOrDefault is { } selectable && !selectable.IsSelected.ValueOrDefault ? selectable : null;
+            var commandInMenu = IsCommandInOpenMenu(element);
             try
             {
                 invoke.Invoke();
@@ -153,6 +157,12 @@ internal static class UiaActions
                 return new ActionOutcome("uia.InvokePattern", true,
                     Warning: "The application is still busy handling the click (it may have opened a modal dialog). Check with list_windows/inspect_window before acting again.");
             }
+            // Some providers report success and do nothing (BCGControlBar ribbon tabs and menu items in a real-world app,
+            // M11). Where the effect is observable, check it rather than claim a change.
+            if (tab is not null && !BecameSelected(tab))
+                return new ActionOutcome("uia.InvokePattern", false, Warning: IgnoredWarning("it is still not selected"));
+            if (commandInMenu && StillShown(element))
+                return new ActionOutcome("uia.InvokePattern", false, Warning: IgnoredWarning("its menu is still open, so the command probably didn't run"));
             return new ActionOutcome("uia.InvokePattern", true);
         }
         if (patterns.Toggle.PatternOrDefault is { } toggle)
@@ -163,6 +173,8 @@ internal static class UiaActions
         if (patterns.SelectionItem.PatternOrDefault is { } item)
         {
             item.Select();
+            if (!BecameSelected(item))
+                throw Ignored(element, "selection");
             return new ActionOutcome("uia.SelectionItemPattern", true);
         }
         if (patterns.ExpandCollapse.PatternOrDefault is { } expand)
@@ -261,6 +273,8 @@ internal static class UiaActions
                 if (item.IsSelected.ValueOrDefault)
                     return new ActionOutcome("none", false, ValueAfter: CurrentValue(container) ?? match.Properties.Name.ValueOrDefault);
                 item.Select();
+                if (!BecameSelected(item))
+                    throw Ignored(match, "selection");
                 return new ActionOutcome("uia.SelectionItemPattern", true, ValueAfter: CurrentValue(container) ?? match.Properties.Name.ValueOrDefault);
             }
 
@@ -335,6 +349,59 @@ internal static class UiaActions
         ToggleState.Off => "off",
         _ => "indeterminate",
     };
+
+    private static bool BecameSelected(FlaUI.Core.Patterns.ISelectionItemPattern item)
+    {
+        var wait = System.Diagnostics.Stopwatch.StartNew();
+        while (!item.IsSelected.ValueOrDefault)
+        {
+            if (wait.Elapsed >= StateSettleTime)
+                return false;
+            Thread.Sleep(25);
+        }
+        return true;
+    }
+
+    /// <summary>A command item inside an open (popup) menu: invoking it should close the menu.</summary>
+    private static bool IsCommandInOpenMenu(AutomationElement element)
+    {
+        if (element.Properties.ControlType.ValueOrDefault != ControlType.MenuItem)
+            return false;
+        if (element.Patterns.ExpandCollapse.PatternOrDefault is { } submenu && submenu.ExpandCollapseState.ValueOrDefault != ExpandCollapseState.LeafNode)
+            return false; // opens a submenu; the menu stays open legitimately
+        return element.Parent?.Properties.ControlType.ValueOrDefault == ControlType.Menu;
+    }
+
+    /// <summary>Whether the element stays on screen for a moment (gone or off-screen = the menu closed). Returns as soon as it's gone.</summary>
+    private static bool StillShown(AutomationElement element)
+    {
+        var wait = System.Diagnostics.Stopwatch.StartNew();
+        while (wait.Elapsed < MenuCloseTime)
+        {
+            try
+            {
+                if (element.Properties.IsOffscreen.ValueOrDefault || element.Properties.BoundingRectangle.ValueOrDefault.Width <= 0)
+                    return false;
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or FlaUI.Core.Exceptions.ElementNotAvailableException)
+            {
+                return false;
+            }
+            Thread.Sleep(50);
+        }
+        return true;
+    }
+
+    private static readonly TimeSpan MenuCloseTime = TimeSpan.FromMilliseconds(500);
+
+    private static string IgnoredWarning(string symptom) =>
+        $"The application accepted the UI Automation request but nothing changed: {symptom}. Some controls (e.g. BCGControlBar ribbons and menus) ignore UI Automation; try send_keys (arrow keys, Enter, or the command's shortcut).";
+
+    private static WinMcpException Ignored(AutomationElement element, string request) =>
+        new(new WinMcpError(
+            WinMcpErrorCode.PatternNotSupported,
+            $"{element.Properties.ControlType.ValueOrDefault} \"{element.Properties.Name.ValueOrDefault}\" ignored the UI Automation {request}: it was accepted, but nothing changed.",
+            Hint: "Some controls (e.g. BCGControlBar ribbons) ignore UI Automation. Use send_keys instead: focus a neighbouring item, then arrow keys or Enter."));
 
     private static WinMcpException NotSupported(AutomationElement element, string what) =>
         new(new WinMcpError(

@@ -119,6 +119,14 @@ A commercial, non-elevated engineering application (shared MFC 14, built on **BC
 - **Not visible to UI Automation** (library/application limits): the contents of ribbon tabs other than the selected one and of the application menu (built only when shown — needs control mode); a custom-drawn "DirectUI" start panel (links readable only from a screenshot); the property grid (`AfxWnd140u`, opaque like `CMFCPropertyGridCtrl`); the status-bar message text; the embedded browser's content. BCG's splitters (`BCGPSlider`) appear as unnamed `ToolBar` elements.
 - **Fixed in WinMCP**: BCG's internal child windows numbered 1 and 2 were labelled `IDOK`/`IDCANCEL`. Windows' standard dialog IDs are now applied only to controls whose parent is a dialog. **Added**: `framework.libraries` names MFC extension libraries (BCGControlBar, Codejock Xtreme Toolkit) from window classes or DLLs, so an agent knows why the tree looks the way it does.
 - `dialog_resources` was empty, correctly: no dialog was open, and the main frame isn't created from a template.
+Second run, control mode (no data changed):
+
+- **Dialog templates on real resources**: an options property sheet matched its template in an application DLL (0.57 — three buttons and a size grip added at run time were reported as extra), its embedded page matched exactly (1.0, from a second DLL), and the standard Open dialog matched (1.0). Templates were found in app-local DLLs, as designed.
+- **Worked**: ribbon buttons via `invoke` (opened the options dialog), Cancel via `BM_CLICK`, the Open dialog (`set_value` + `invoke`; document loaded in 1.9 s), the assembly tree with `set_expanded`, property-grid editors with values, combos/check boxes/sliders in the dialog.
+- **BCG ignores UI Automation for ribbon tabs and popup menu items**: `invoke`/`select_option` were accepted and did nothing, yet WinMCP reported success. Fixed: selections are verified (error if they don't take); `invoke` on a tab or a menu command checks the tab became selected / the menu closed and otherwise returns `changed: false` with a warning. Tabs could be switched with arrow keys; menu items ignored keys too (shortcuts such as `Ctrl+O` worked).
+- **Wrong labels from UIA's label heuristic**: in rows with two combo boxes, a row's label was attached to the wrong combo or row. Not detectable by WinMCP; documented — locate by control ID.
+- **Fixed**: the embedded property page (control ID 1) was still labelled `IDOK`; standard dialog IDs are no longer applied to dialog windows. **Fixed**: unknown tool parameters (an agent passed `value_contains`) were silently ignored; they're now rejected.
+- Not visible: property-grid row labels and section headers (values only), tree check boxes, the 3D viewport (screenshot).
 ## Next steps
 
 - Real-world application, continued: control mode (ribbon tabs, application menu, an open document with its dialogs, to test dialog-template matching on real resources).

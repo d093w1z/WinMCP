@@ -42,6 +42,21 @@ public sealed class UiTreeToolTests
     }
 
     [Fact]
+    public async Task Unknown_arguments_are_rejected_with_the_valid_ones_listed()
+    {
+        await using var server = await Start();
+
+        // An agent passed value_contains to find_elements; it used to be ignored silently, widening the search.
+        var result = await server.CallAsync("find_elements", new() { ["hwnd"] = "hwnd:0x00000010", ["value_contains"] = "HTML" });
+
+        Assert.True(result.IsError);
+        var error = Assert.IsType<JsonElement>(result.StructuredContent).GetProperty("error");
+        Assert.Equal("INVALID_ARGUMENT", error.GetProperty("code").GetString());
+        Assert.Contains("'value_contains'", error.GetProperty("message").GetString());
+        Assert.Contains("name_contains", error.GetProperty("hint").GetString());
+    }
+
+    [Fact]
     public async Task Get_ui_tree_declares_an_output_schema()
     {
         await using var server = await Start();

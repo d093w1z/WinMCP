@@ -58,7 +58,7 @@ PNG of a window, or of one element (`element` or criteria, with `padding`). The 
 
 ## Control tools (`--mode control`)
 
-All control tools refuse disabled elements (`ELEMENT_DISABLED`) — Windows' own UI Automation would otherwise click disabled WinForms buttons and run their handlers — and every call is written to the audit log. Results: `{ok, action, element, method, changed, value_after?, state_after?, warning?, elapsed_ms}`; `method` says how it was done (`uia.InvokePattern`, `win32.CB_SETCURSEL+CBN_SELCHANGE`, …, or `none` when nothing had to change).
+All control tools refuse disabled elements (`ELEMENT_DISABLED`) — Windows' own UI Automation would otherwise click disabled WinForms buttons and run their handlers — and every call is written to the audit log. Results: `{ok, action, element, method, changed, value_after?, state_after?, warning?, elapsed_ms}`; `method` says how it was done (`uia.InvokePattern`, `win32.CB_SETCURSEL+CBN_SELCHANGE`, …, or `none` when nothing had to change). Where the effect is observable WinMCP checks it instead of trusting the control: a selection that doesn't take is an error (`PATTERN_NOT_SUPPORTED`), and an `invoke` on a tab that stays unselected, or on a menu command whose menu stays open, returns `changed: false` with a `warning` — some controls (BCGControlBar ribbons and menus) accept UI Automation requests and ignore them. Unknown parameters are rejected with `INVALID_ARGUMENT` listing the valid ones.
 
 | Tool | Does | Notes |
 |------|------|-------|

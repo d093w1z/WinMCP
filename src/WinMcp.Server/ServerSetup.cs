@@ -37,7 +37,7 @@ public static class ServerSetup
                 o.ServerInstructions = Instructions(options);
             })
             .WithTools<ObserveTools>(WinMcpJson.Options)
-            .WithRequestFilters(filters => filters.AddCallToolFilter(ToolErrorFilter.Create));
+            .WithRequestFilters(filters => filters.AddCallToolFilter(ToolErrorFilter.Create).AddCallToolFilter(UnknownArgumentFilter.Create));
 
         // In observe mode the control tools are absent from tools/list, not merely refused.
         if (options.Mode == ServerMode.Control)
