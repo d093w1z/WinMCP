@@ -1,0 +1,56 @@
+// Window enumeration & properties
+EnumWindows
+EnumChildWindows
+IsWindow
+GetAncestor
+GetDesktopWindow
+GetWindowLong
+IsHungAppWindow
+GetWindowTextLength
+GetWindowText
+GetClassName
+IsWindowVisible
+IsWindowEnabled
+IsIconic
+IsZoomed
+GetWindow
+GetForegroundWindow
+GetWindowThreadProcessId
+GetWindowRect
+GetDpiForWindow
+SetThreadDpiAwarenessContext
+DwmGetWindowAttribute
+DWMWINDOWATTRIBUTE
+
+// Controls
+GetDlgCtrlID
+SendMessageTimeout
+CB_GETCOUNT
+CB_GETLBTEXT
+CB_GETLBTEXTLEN
+CB_SETCURSEL
+CBN_SELCHANGE
+WM_COMMAND
+WM_SETTEXT
+BM_CLICK
+PostMessage
+GetParent
+GetGUIThreadInfo
+
+// Capture
+PrintWindow
+
+// Keyboard
+SendInput
+SetForegroundWindow
+BringWindowToTop
+MapVirtualKey
+
+// Process information
+OpenProcess
+QueryFullProcessImageName
+IsWow64Process2
+OpenProcessToken
+GetTokenInformation
+TOKEN_ELEVATION
+IMAGE_FILE_MACHINE

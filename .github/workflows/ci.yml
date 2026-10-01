@@ -1,0 +1,58 @@
+name: ci
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build WinMcp.slnx -c Release
+
+      # Everything that doesn't need an interactive desktop. Exit code 8 = an assembly had
+      # all its tests filtered out (the GUI test assembly), which is expected here.
+      - name: Test (no GUI)
+        run: dotnet test --solution WinMcp.slnx -c Release --no-build --filter-not-trait "Category=Windows" --ignore-exit-code 8
+
+  # GUI tests on the hosted runner's interactive desktop — required since v1. Results also go to the
+  # job summary, which is readable on the run page without signing in, unlike the logs.
+  ui-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build WinMcp.slnx -c Release
+
+      # The MFC test app needs VS C++ with MFC (present on the hosted image); its tests are part of the gate.
+      - name: Build MFC test app
+        shell: pwsh
+        run: ./scripts/build-mfc.ps1
+
+      - name: Test (GUI)
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($project in 'WinMcp.Windows.IntegrationTests', 'WinMcp.E2ETests') {
+            $output = dotnet test --project "tests/$project" -c Release --no-build 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0) { $failed = $true }
+            Write-Host "===== $project (exit $LASTEXITCODE) ====="
+            Write-Host $output
+            $lines = $output -split "`n" | Where-Object { $_ -match 'failed |passed \(|Exception|Assert\.|Expected|Actual|total:|succeeded:|failed:' } | Select-Object -First 80
+            "### $project (exit $LASTEXITCODE)`n``````text`n$($lines -join "`n")`n``````" | Add-Content $env:GITHUB_STEP_SUMMARY
+          }
+          if ($failed) { exit 1 }

@@ -1,0 +1,102 @@
+// UTF-8 source; the code page pragma tells rc.exe.
+#pragma code_page(65001)
+
+#include "resource.h"
+#include "afxres.h"
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+// Same contract as samples/WinMcp.TestApp (names, texts, status strings); see MainDlg.cpp.
+IDD_MAIN DIALOGEX 0, 0, 470, 235
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "WinMCP MFC Test App"
+MENU IDR_MAINMENU
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "Name:", IDC_STATIC, 7, 10, 60, 8
+    EDITTEXT        IDC_EDIT_NAME, 80, 8, 140, 14, ES_AUTOHSCROLL
+    LTEXT           "Type:", IDC_STATIC, 7, 30, 60, 8
+    COMBOBOX        IDC_COMBO_TYPE, 80, 28, 140, 60, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "Enable feature", IDC_CHECK_ENABLE, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 80, 48, 100, 10
+    PUSHBUTTON      "Apply", IDC_BUTTON_APPLY, 80, 64, 50, 14
+    PUSHBUTTON      "Cancel", IDC_BUTTON_CANCEL, 135, 64, 50, 14
+    PUSHBUTTON      "Advanced...", IDC_BUTTON_ADVANCED, 190, 64, 50, 14, WS_DISABLED
+    EDITTEXT        IDC_EDIT_HIDDEN, 245, 64, 50, 14, ES_AUTOHSCROLL | NOT WS_VISIBLE
+    PUSHBUTTON      "Slow apply", IDC_BUTTON_SLOW_APPLY, 80, 84, 50, 14
+    PUSHBUTTON      "Add field", IDC_BUTTON_ADD_FIELD, 135, 84, 50, 14
+    PUSHBUTTON      "Freeze 8s", IDC_BUTTON_FREEZE, 190, 84, 50, 14
+    PUSHBUTTON      "Dialog...", IDC_BUTTON_DIALOG, 245, 84, 50, 14
+    LTEXT           "Items:", IDC_STATIC, 310, 8, 60, 8
+    CONTROL         "", IDC_LIST_ITEMS, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 310, 18, 150, 70
+    LTEXT           "Tree:", IDC_STATIC, 310, 93, 60, 8
+    CONTROL         "", IDC_TREE_ITEMS, "SysTreeView32", TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP, 310, 103, 150, 55
+    CONTROL         "", IDC_CANVAS, "WinMcpCanvas", WS_BORDER, 310, 163, 150, 30
+    LTEXT           "Status: Ready", IDC_STATIC_STATUS, 7, 200, 455, 8
+    LTEXT           "Events: 0 []", IDC_STATIC_EVENTS, 7, 212, 455, 18
+END
+
+IDD_CONFIRM DIALOGEX 0, 0, 200, 70
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Confirm"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "Note:", IDC_STATIC, 7, 12, 40, 8
+    EDITTEXT        IDC_EDIT_NOTE, 50, 10, 140, 14, ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK", IDOK, 85, 45, 50, 14
+    PUSHBUTTON      "Cancel", IDCANCEL, 140, 45, 50, 14
+END
+
+IDR_MAINMENU MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&New", ID_MENU_FILE_NEW
+    END
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "&Clear name", ID_MENU_EDIT_CLEARNAME
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About...", ID_MENU_HELP_ABOUT
+    END
+END
+
+// Frame app (--frame). Toolbar tooltips and status-bar prompts come from the "prompt\ntip" strings, as in AppWizard apps.
+IDR_FRAME MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&New", ID_FRAME_NEW
+        MENUITEM "&Count", ID_FRAME_COUNT
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit", ID_APP_EXIT
+    END
+END
+
+STRINGTABLE
+BEGIN
+    IDR_FRAME               "WinMCP MFC Frame App"
+    ID_FRAME_NEW            "Reset the counter\nNew"
+    ID_FRAME_COUNT          "Increment the counter\nCount"
+    ID_INDICATOR_COUNT      "Count: 0000"
+    AFX_IDS_IDLEMESSAGE     "Ready"
+    ID_APP_EXIT             "Quit the application\nExit"
+END
+
+// Features dialog (--features). The property grid is created in code over IDC_MFC_PROPGRID's placeholder.
+IDD_FEATURES DIALOGEX 0, 0, 330, 220
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "WinMCP MFC Features"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    CONTROL         "Owner drawn", IDC_OWNERDRAW_BUTTON, "Button", BS_OWNERDRAW | WS_TABSTOP, 7, 7, 90, 16
+    PUSHBUTTON      "MFC button", IDC_MFC_BUTTON, 105, 7, 90, 16
+    PUSHBUTTON      "", IDC_MFC_COLOR, 203, 7, 90, 16
+    LTEXT           "File:", IDC_STATIC, 7, 32, 40, 8
+    EDITTEXT        IDC_MFC_EDITBROWSE, 50, 30, 180, 14, ES_AUTOHSCROLL
+    LTEXT           "Phone:", IDC_STATIC, 7, 52, 40, 8
+    EDITTEXT        IDC_MFC_MASKED, 50, 50, 100, 14, ES_AUTOHSCROLL
+    LTEXT           "", IDC_MFC_PROPGRID, 7, 72, 316, 120, NOT WS_VISIBLE
+    LTEXT           "Status: Ready", IDC_FEATURES_STATUS, 7, 200, 316, 10
+END
