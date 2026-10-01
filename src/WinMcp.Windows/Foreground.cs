@@ -18,6 +18,18 @@ internal static unsafe class Foreground
     /// </summary>
     public static bool Bring(HWND hwnd)
     {
+        // Two attempts: with another window of the same application in front (a BCGControlBar popup menu, M11), Windows
+        // reliably refused the first switch and allowed an immediate second one.
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            if (TryBring(hwnd))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool TryBring(HWND hwnd)
+    {
         if (Is(hwnd))
             return true;
         var nudge = new INPUT { type = INPUT_TYPE.INPUT_MOUSE };
