@@ -146,3 +146,7 @@ This repository's [`.mcp.json`](.mcp.json) runs a published development build wi
 | `scripts/` | MFC build, packaging, development publishing |
 | `docs/` | Specification, tool reference, security, limitations, MFC investigation; `docs/design/mvp-plan.md` is the development history |
 | `spikes/` | Research code, not part of the build (M0 UI Automation spike; M11 in-process MFC runtime-class spike) |
+
+## License
+
+Copyright 2026 d093w1z. Licensed under the [Apache License, Version 2.0](LICENSE).

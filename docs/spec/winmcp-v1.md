@@ -249,7 +249,7 @@ One JSON object per line in `<audit-dir>\audit-YYYYMMDD.jsonl` for every control
 
 ## 13. Distribution and versioning
 
-- **Release package:** `WinMCP-<version>-win-x64.zip` with a self-contained, single-file `WinMcp.Server.exe` (no .NET installation needed on the user's machine; not trimmed, because UI Automation is COM interop) plus `README.md` and the user documentation (`tools.md`, `security.md`, `limitations.md`), and a `.sha256` checksum file. Built by `scripts/package.ps1`.
+- **Release package:** `WinMCP-<version>-win-x64.zip` with a self-contained, single-file `WinMcp.Server.exe` (no .NET installation needed on the user's machine; not trimmed, because UI Automation is COM interop) plus `README.md`, `LICENSE` and the user documentation (`tools.md`, `security.md`, `limitations.md`), and a `.sha256` checksum file. Built by `scripts/package.ps1`.
 - **Installation:** extract anywhere and register the executable with an MCP client; the README gives the configuration for Claude Code, VS Code, Cursor and Claude Desktop, the arguments, usage, update and removal.
 - **Versioning:** Semantic Versioning, defined once in `Directory.Build.props` and reported as the MCP server version. Breaking changes to tool names, parameters, result fields or error codes require a new major version; additions are minor.
 - **Release process:** pushing a tag `vX.Y.Z` that matches the version runs `.github/workflows/release.yml`: build, non-GUI tests, packaging, the end-to-end suite **against the packaged executable**, and publication of the archive and checksum as a GitHub release.

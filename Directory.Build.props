@@ -12,6 +12,7 @@
 
     <Version>1.0.0</Version>
     <Product>WinMCP</Product>
+    <Copyright>Copyright 2026 d093w1z. Licensed under the Apache License, Version 2.0.</Copyright>
   </PropertyGroup>
 
 </Project>

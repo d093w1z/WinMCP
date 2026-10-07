@@ -30,7 +30,7 @@ dotnet publish (Join-Path $root 'src\WinMcp.Server\WinMcp.Server.csproj') -c Rel
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
 
 $docs = New-Item -ItemType Directory -Force (Join-Path $staging 'docs')
-Copy-Item (Join-Path $root 'README.md') $staging
+Copy-Item (Join-Path $root 'README.md'), (Join-Path $root 'LICENSE') $staging
 foreach ($doc in 'tools.md', 'security.md', 'limitations.md') {
     Copy-Item (Join-Path $root "docs\$doc") $docs
 }
