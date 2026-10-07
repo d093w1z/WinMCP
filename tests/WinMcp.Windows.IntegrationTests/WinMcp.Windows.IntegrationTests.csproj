@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Real UI Automation against samples/WinMcp.TestApp. Needs an interactive desktop; tests carry Category=Windows. -->
+  <PropertyGroup>
+    <TargetFramework>$(WinMcpWindowsTfm)</TargetFramework>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <Import Project="..\Shared\Windows\GuiTests.props" />
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="FlaUI.UIA3" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WinMcp.Windows\WinMcp.Windows.csproj" />
+    <!-- Build-order dependency only; the app is launched as a separate process from its own output folder. -->
+    <ProjectReference Include="..\..\samples\WinMcp.TestApp\WinMcp.TestApp.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>TestAppPath</_Parameter1>
+      <_Parameter2>$(MSBuildThisFileDirectory)..\..\samples\WinMcp.TestApp\bin\$(Configuration)\$(TargetFramework)\WinMcp.TestApp.exe</_Parameter2>
+    </AssemblyAttribute>
+    <!-- Built separately by scripts/build-mfc.ps1 (needs VS C++ with MFC); the MFC tests skip when it is missing. -->
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>MfcTestAppPath</_Parameter1>
+      <_Parameter2>$(MSBuildThisFileDirectory)..\..\samples\WinMcp.MfcTestApp\bin\x64\Release\WinMcp.MfcTestApp.exe</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Win32 / UI Automation implementations of Core interfaces. The only project that talks to Windows. -->
+  <PropertyGroup>
+    <TargetFramework>$(WinMcpWindowsTfm)</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FlaUI.UIA3" />
+    <PackageReference Include="System.Drawing.Common" />
+    <PackageReference Include="Microsoft.Windows.CsWin32">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WinMcp.Core\WinMcp.Core.csproj" />
+  </ItemGroup>
+
+</Project>

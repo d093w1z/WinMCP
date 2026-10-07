@@ -1,0 +1,22 @@
+<Project>
+
+  <!--
+    Imported by test projects that launch real applications (integration and E2E):
+    - ChildProcessJob: launched apps die with the test process (no orphaned windows after crashes or interrupts).
+    - TestRunWatchdog: aborts a run that exceeds WINMCP_TEST_TIMEOUT_MINUTES (default 5).
+    - HangDump: enables the hangdump options (see TestRunWatchdog.cs) to capture where a run is stuck.
+  -->
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
+    <PackageReference Include="Microsoft.Windows.CsWin32">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)NativeMethods.txt" />
+    <Compile Include="$(MSBuildThisFileDirectory)*.cs" LinkBase="Shared\Windows" />
+  </ItemGroup>
+
+</Project>

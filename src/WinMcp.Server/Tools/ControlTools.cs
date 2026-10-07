@@ -1,0 +1,107 @@
+using System.ComponentModel;
+using ModelContextProtocol.Server;
+using WinMcp.Core.Automation;
+
+namespace WinMcp.Server.Tools;
+
+/// <summary>Interaction tools. Registered only with <c>--mode control</c>, so observe-mode clients never see them.</summary>
+[McpServerToolType]
+public sealed class ControlTools(InteractionService interaction)
+{
+    private const string TargetHelp =
+        " Identify the element by 'element' (a ref), or by 'hwnd' plus criteria that match exactly one element. "
+        + "Disabled elements are refused.";
+
+    [McpServerTool(Name = "invoke", Title = "Invoke (click)", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Activates an element the way a click would: presses a button, toggles a check box, selects an item, or expands/collapses."
+        + TargetHelp + " The result's 'method' says how it was done (UI Automation pattern or Win32 message).")]
+    public Task<ActionResult> Invoke(
+        [Description("Ref from get_ui_tree/find_elements, e.g. 'e7'.")] string? element = null,
+        [Description("Window handle from list_windows; use with criteria.")] string? hwnd = null,
+        [Description("Exact AutomationId.")] string? automation_id = null,
+        [Description("Exact element name.")] string? name = null,
+        [Description("UI Automation control type, e.g. Button.")] string? control_type = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
+        CancellationToken cancellationToken = default) =>
+        interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.Invoke(), cancellationToken);
+
+    [McpServerTool(Name = "set_value", Title = "Set value", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Replaces the text of an edit field (or other element with a settable value)." + TargetHelp
+        + " Password fields are refused. Returns the value read back afterwards.")]
+    public Task<ActionResult> SetValue(
+        [Description("The complete new value.")] string value,
+        [Description("Ref from get_ui_tree/find_elements, e.g. 'e7'.")] string? element = null,
+        [Description("Window handle from list_windows; use with criteria.")] string? hwnd = null,
+        [Description("Exact AutomationId.")] string? automation_id = null,
+        [Description("Exact element name (for edits, usually their label).")] string? name = null,
+        [Description("UI Automation control type, e.g. Edit.")] string? control_type = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
+        CancellationToken cancellationToken = default) =>
+        interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.SetValue(value), cancellationToken);
+
+    [McpServerTool(Name = "select_option", Title = "Select option", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Selects an item by its text in a combo box (drop-down), list, tab control or tree view; the target is the container, not the item. "
+        + "For trees, give a path such as \"Documents > Reports > Q1.txt\" to expand the way there."
+        + TargetHelp + " A combo box is opened only as long as needed. Unknown options return OPTION_NOT_FOUND with the available ones.")]
+    public Task<ActionResult> SelectOption(
+        [Description("Text of the item to select, e.g. 'HTML'.")] string option,
+        [Description("Ref of the combo box/list/tab control, e.g. 'e5'.")] string? element = null,
+        [Description("Window handle from list_windows; use with criteria.")] string? hwnd = null,
+        [Description("Exact AutomationId of the container.")] string? automation_id = null,
+        [Description("Exact name of the container (usually its label).")] string? name = null,
+        [Description("UI Automation control type, e.g. ComboBox, List, Tab.")] string? control_type = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
+        CancellationToken cancellationToken = default) =>
+        interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.Select(option), cancellationToken);
+
+    [McpServerTool(Name = "set_toggle", Title = "Set check box", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Sets a check box or toggle button to 'on' or 'off'. Does nothing (changed=false) if it's already in that state, so it is safe to repeat."
+        + TargetHelp)]
+    public Task<ActionResult> SetToggle(
+        [Description("'on' or 'off'.")] string state,
+        [Description("Ref from get_ui_tree/find_elements, e.g. 'e6'.")] string? element = null,
+        [Description("Window handle from list_windows; use with criteria.")] string? hwnd = null,
+        [Description("Exact AutomationId.")] string? automation_id = null,
+        [Description("Exact element name.")] string? name = null,
+        [Description("UI Automation control type, e.g. CheckBox.")] string? control_type = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
+        CancellationToken cancellationToken = default) =>
+        interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.SetToggle(ActionArguments.ParseToggle(state)), cancellationToken);
+
+    [McpServerTool(Name = "set_expanded", Title = "Expand or collapse", ReadOnly = false, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Expands or collapses a tree node, combo box, menu or other expandable element. Does nothing (changed=false) if it's already in that state. "
+        + "Children of collapsed tree nodes are not in the UI tree until their parent is expanded." + TargetHelp)]
+    public Task<ActionResult> SetExpanded(
+        [Description("'expanded' or 'collapsed'.")] string state,
+        [Description("Ref from get_ui_tree/find_elements, e.g. 'e52'.")] string? element = null,
+        [Description("Window handle from list_windows; use with criteria.")] string? hwnd = null,
+        [Description("Exact AutomationId.")] string? automation_id = null,
+        [Description("Exact element name, e.g. a tree node's text.")] string? name = null,
+        [Description("UI Automation control type, e.g. TreeItem, MenuItem, ComboBox.")] string? control_type = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
+        CancellationToken cancellationToken = default) =>
+        interaction.PerformAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), new ElementAction.SetExpanded(ActionArguments.ParseExpanded(state)), cancellationToken);
+
+    [McpServerTool(Name = "send_keys", Title = "Send keys", ReadOnly = false, Destructive = true, Idempotent = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description(
+        "Types into an application: 'text' is typed literally; 'keys' is a comma-separated sequence of key combinations, e.g. \"Ctrl+A, Backspace, Enter\" "
+        + "(modifiers Ctrl/Shift/Alt; keys A–Z, 0–9, F1–F24, Enter, Tab, Esc, Backspace, Delete, Insert, Home, End, PageUp, PageDown, Up/Down/Left/Right, Space, Menu). "
+        + "Prefer set_value/invoke/select_option when they fit; use this for shortcuts or controls without a settable value. "
+        + "Give 'element' (or hwnd + criteria) to focus a control first, or just 'hwnd' to type into whatever has focus. "
+        + "The window is brought to the foreground and input stops with FOCUS_FAILED if anything else takes the foreground. "
+        + "Windows-key and window-switching combinations (Alt+Tab, Ctrl+Esc, ...) and password fields are refused.")]
+    public Task<ActionResult> SendKeys(
+        [Description("Literal text to type. Newlines press Enter.")] string? text = null,
+        [Description("Comma-separated key combinations, e.g. \"Ctrl+A, Delete\".")] string? keys = null,
+        [Description("Ref of the element to focus first, e.g. 'e3'.")] string? element = null,
+        [Description("Window handle from list_windows.")] string? hwnd = null,
+        [Description("Exact AutomationId of the element to focus (with hwnd).")] string? automation_id = null,
+        [Description("Exact name of the element to focus (with hwnd).")] string? name = null,
+        [Description("UI Automation control type of the element to focus (with hwnd).")] string? control_type = null,
+        [Description(ToolText.ControlSymbol)] string? control_symbol = null,
+        CancellationToken cancellationToken = default) =>
+        interaction.SendKeysAsync(hwnd, element, Locator(automation_id, name, control_type, control_symbol), KeyInputParser.Parse(text, keys), cancellationToken);
+
+    private static ElementLocator Locator(string? automationId, string? name, string? controlType, string? controlSymbol) =>
+        new(AutomationId: automationId, Name: name, ControlType: controlType, ControlSymbol: controlSymbol);
+}

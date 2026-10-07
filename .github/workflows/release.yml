@@ -1,0 +1,74 @@
+name: release
+
+# Pushing a tag vX.Y.Z builds, tests and publishes the self-contained release archive as a GitHub release.
+# Run it manually (workflow_dispatch) for a dry run: everything except publishing; the archive is kept as a
+# workflow artifact for inspection.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Plain logs: no ANSI colour codes from the test platform or PowerShell.
+env:
+  NO_COLOR: '1'
+  DOTNET_NOLOGO: '1'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Check the tag matches the version
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          $PSStyle.OutputRendering = 'PlainText'
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ("v$version" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} doesn't match version $version in Directory.Build.props." }
+
+      - name: Build
+        run: dotnet build WinMcp.slnx -c Release
+
+      - name: Test (no GUI)
+        run: dotnet test --solution WinMcp.slnx -c Release --no-build --no-ansi --no-progress --filter-not-trait "Category=Windows" --ignore-exit-code 8
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $PSStyle.OutputRendering = 'PlainText'
+          ./scripts/package.ps1
+
+      # The end-to-end suite against the packaged executable: what users download is what was tested.
+      - name: Test the package
+        shell: pwsh
+        run: |
+          $PSStyle.OutputRendering = 'PlainText'
+          $dir = Join-Path $env:RUNNER_TEMP 'winmcp'
+          Expand-Archive (Get-Item artifacts/release/*.zip).FullName $dir
+          $env:WINMCP_SERVER_PATH = Join-Path $dir 'WinMcp.Server.exe'
+          dotnet test --project tests/WinMcp.E2ETests -c Release --no-build --no-ansi --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "End-to-end tests against the package failed." }
+
+      - name: Keep the archive (dry run)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-archive
+          path: artifacts/release/*
+
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $PSStyle.OutputRendering = 'PlainText'
+          gh release create "${{ github.ref_name }}" (Get-Item artifacts/release/*) --title "WinMCP ${{ github.ref_name }}" --generate-notes

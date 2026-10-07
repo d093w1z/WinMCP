@@ -1,0 +1,3 @@
+<Project>
+  <!-- Spikes pin their own package versions; opt out of central package management. -->
+</Project>

@@ -1,0 +1,11 @@
+GetDlgCtrlID
+GetWindowRect
+GetDpiForWindow
+GetDpiForSystem
+GetThreadDpiAwarenessContext
+GetAwarenessFromDpiAwarenessContext
+DwmGetWindowAttribute
+DWMWINDOWATTRIBUTE
+IsHungAppWindow
+PostMessage
+BM_CLICK
